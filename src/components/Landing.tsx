@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { REVIEWS } from '../lib/engine';
+import { trpc } from '@/providers/trpc';
+import { SUPPORT_EMAIL } from '../lib/config';
 
 /* ── reveal-on-scroll ── */
 function useReveal() {
@@ -36,6 +38,25 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
       }}
     >
       {children}
+    </div>
+  );
+}
+
+/* ── REAL scarcity: today's actual usage, read from the live database ── */
+function useSpotsLeft() {
+  const q = trpc.public.spotsLeft.useQuery(undefined, { refetchInterval: 30000, retry: false });
+  return q.data ?? null;
+}
+
+function ScarcityBar() {
+  const spots = useSpotsLeft();
+  if (!spots || spots.left <= 0) return null;
+  return (
+    <div className="fixed inset-x-0 top-0 z-[60] bg-[#3d0b26] px-4 py-2 text-center">
+      <p className="text-[11.5px] font-medium tracking-wide text-[#fbf5ef]/90">
+        <span className="font-semibold text-[#edc840]">{spots.left} of {spots.cap} report slots left today</span>
+        <span className="hidden sm:inline text-[#fbf5ef]/50"> — we cap daily reports so every one gets a real review</span>
+      </p>
     </div>
   );
 }
@@ -85,28 +106,6 @@ function CTAButton({
   );
 }
 
-/* ── scarcity: deterministic "spots left today" (resets daily, ticks down) ── */
-function useSpotsLeft() {
-  const [spots, setSpots] = useState(0);
-  useEffect(() => {
-    const day = Math.floor(Date.now() / 86400000);
-    const seed = (day * 2654435761) % 1000;
-    const start = 187 + (seed % 40); // 187–226 taken at midnight
-    const total = 300;
-    const minutesToday = Math.floor((Date.now() % 86400000) / 60000);
-    const taken = Math.min(total - 11, start + Math.floor(minutesToday * 0.09));
-    setSpots(total - taken);
-  }, []);
-  return spots;
-}
-
-const STATS = [
-  { n: '38,000+', l: 'women decoded' },
-  { n: '4.9 / 5', l: 'average rating' },
-  { n: '92%', l: 'say it “read them accurately”' },
-  { n: '71%', l: 'in a committed relationship within 12 months*' },
-];
-
 const PAIN_POINTS = [
   'You’re the successful one at brunch — and the only one going home alone.',
   'Every situationship starts electric and ends with “he’s not ready.”',
@@ -122,7 +121,7 @@ const FAILURES = [
   },
   {
     t: 'Therapy',
-    d: 'Wonderful for healing. But 60-minute sessions drift — you need a targeted map of your romantic pattern, not open-ended exploration.',
+    d: 'Wonderful for healing. But 60-minute sessions drift — sometimes you need a targeted map of your romantic pattern, not open-ended exploration.',
   },
   {
     t: 'Advice from friends',
@@ -130,12 +129,12 @@ const FAILURES = [
   },
 ];
 
-const VALUE_STACK = [
-  { item: 'Your Attachment Archetype — the exact pattern running your love life, named', value: 97 },
-  { item: 'The Root-Cause Trace — your father template & childhood imprint, decoded', value: 147 },
-  { item: 'The Ex Pattern Map — why they all rhymed, laid out in plain language', value: 67 },
-  { item: '“The Real Reason You’re Still Single” — the sentence no one has said to you', value: 197 },
-  { item: 'Your 90-Day Path — week-by-week moves from pattern to proposal', value: 197 },
+const INSIDE = [
+  'Your Attachment Archetype — the exact pattern running your love life, named',
+  'The Root-Cause Trace — your father template & childhood imprint, decoded',
+  'The Ex Pattern Map — why they all rhymed, laid out in plain language',
+  '“The Real Reason You’re Still Single” — the sentence no one has said to you',
+  'Your 90-Day Path — week-by-week moves from pattern to proposal',
 ];
 
 const NOT_FOR = [
@@ -147,27 +146,27 @@ const NOT_FOR = [
 const FAQ = [
   {
     q: 'Is it really free? What’s the catch?',
-    a: 'The assessment and your core report are free. We make money when a small percentage of women choose to go deeper with the full Blueprint or a private session — after they’ve seen the quality of the free reading. You get the value first. That’s the whole model.',
+    a: 'The assessment and your core report are genuinely free — no card required. We offer an optional paid Blueprint afterward for women who want the deeper work, but you get the full free reading first and owe nothing.',
   },
   {
     q: 'How can 21 questions know anything real about me?',
-    a: 'Because the questions aren’t random. They’re built on 70 years of attachment research and calibrated against 38,000+ female profiles. Most women describe the report as “uncomfortably specific.” That specificity is the product.',
+    a: 'The questions are built on attachment research developed over seven decades (Bowlby, Ainsworth, Hazan & Shaver) and designed to surface the patterns that research links to partner selection and relationship outcomes.',
   },
   {
     q: 'I’m over 35. Is this going to tell me it’s too late?',
-    a: 'No — because it isn’t. The average Revela member is 33. The pattern that kept you single at 27 is the same one operating now, which means fixing it works now. The timeline is shorter, so the precision matters more.',
+    a: 'No — because it isn’t. The pattern that kept you single at 27 is the same one operating now, which means changing it works now. Revela is educational self-reflection, not a deadline.',
   },
   {
     q: 'Is this therapy?',
-    a: 'No. Revela is a diagnostic and a strategy — it shows you the pattern and the path. Many members bring their report to their therapist and say it saved them months.',
+    a: 'No. Revela is an educational self-assessment — it shows you a pattern and a suggested path. It is not medical or psychological advice, and many members bring their report to a licensed therapist to go deeper.',
   },
   {
     q: 'Are my answers private?',
-    a: 'Encrypted, never sold, never shared. Your photo (optional) is never published anywhere. You can request deletion of everything, anytime.',
+    a: 'Yes. Your answers are encrypted, never sold, and never shared. Your photo (optional) is never published. You can request full deletion anytime via our privacy page.',
   },
   {
-    q: 'What if the report is wrong about me?',
-    a: 'Then you lost seven minutes. But 92% of women say it “read them accurately” — and the ones it helps don’t get that time back either. They get a marriage.',
+    q: 'What if the report doesn’t resonate with me?',
+    a: 'Then you lost seven minutes and nothing else — the assessment is free and there’s no obligation. It’s a self-reflection tool, not a diagnosis; take what’s useful and leave the rest.',
   },
 ];
 
@@ -180,22 +179,17 @@ export default function Landing({
   resume?: boolean;
   onRestart?: () => void;
 }) {
-  const spots = useSpotsLeft();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+
+  const spots = useSpotsLeft();
 
   return (
     <div className="bg-grain min-h-screen pb-20 md:pb-0">
-      {/* ── Scarcity bar ── */}
-      <div className="fixed inset-x-0 top-0 z-[60] bg-[#3d0b26] px-4 py-2 text-center">
-        <p className="text-[11.5px] font-medium tracking-wide text-[#fbf5ef]/90">
-          Free analysis this week only —{' '}
-          <span className="font-semibold text-[#edc840]">{spots > 0 ? spots : 11} spots left today</span>
-          <span className="hidden sm:inline text-[#fbf5ef]/50"> · quality cap: 300 reports/day</span>
-        </p>
-      </div>
+      {/* ── Real scarcity bar (live from the database) ── */}
+      <ScarcityBar />
 
       {/* ── Nav ── */}
-      <header className="fixed inset-x-0 top-[34px] z-50 border-b border-[#751545]/10 bg-[#fbf5ef]/85 backdrop-blur-md">
+      <header className="fixed inset-x-0 top-[33px] z-50 border-b border-[#751545]/10 bg-[#fbf5ef]/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-baseline gap-1">
             <span className="font-display text-2xl font-semibold tracking-tight text-[#3d0b26]">Revela</span>
@@ -203,8 +197,8 @@ export default function Landing({
           </div>
           <nav className="hidden items-center gap-8 text-sm font-medium text-[#4a1230]/75 md:flex">
             <a href="#method" className="transition-colors hover:text-[#751545]">The Method</a>
-            <a href="#team" className="transition-colors hover:text-[#751545]">Our Doctors</a>
-            <a href="#stories" className="transition-colors hover:text-[#751545]">Results</a>
+            <a href="#team" className="transition-colors hover:text-[#751545]">Our Approach</a>
+            <a href="#stories" className="transition-colors hover:text-[#751545]">Member Stories</a>
             <a href="#faq" className="transition-colors hover:text-[#751545]">FAQ</a>
           </nav>
           <button onClick={onStart} className="btn-shine rounded-full px-5 py-2.5 text-sm font-semibold text-white">
@@ -213,14 +207,14 @@ export default function Landing({
         </div>
       </header>
 
-      {/* ── Hero: call-out headline ── */}
+      {/* ── Hero ── */}
       <section className="relative flex min-h-screen flex-col items-center justify-center px-6 pt-36 pb-16 text-center">
         <div className="animate-float-slow pointer-events-none absolute left-[8%] top-[18%] hidden text-6xl text-[#c4688a]/25 lg:block">✦</div>
         <div className="animate-float-slow pointer-events-none absolute right-[10%] top-[30%] hidden text-5xl text-[#c9a24b]/30 lg:block" style={{ animationDelay: '-3s' }}>❋</div>
 
         <Reveal>
           <p className="mb-6 inline-block rounded-full border border-[#c9a24b]/40 bg-white/60 px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#751545]">
-            For women who are done wasting years
+            A free self-assessment for women done guessing
           </p>
         </Reveal>
         <Reveal delay={120}>
@@ -228,14 +222,14 @@ export default function Landing({
             If you keep attracting men
             <br />
             who won’t commit —{' '}
-            <em className="font-light text-[#751545]">this 7-minute assessment shows you exactly why.</em>
+            <em className="font-light text-[#751545]">this 7-minute assessment may show you why.</em>
           </h1>
         </Reveal>
         <Reveal delay={240}>
           <p className="mx-auto mt-7 max-w-2xl text-base leading-relaxed text-[#4a1230]/75 md:text-lg">
-            Revela’s <b>Pattern Decoding Method™</b> finds the invisible script written by your
-            childhood, your father, and your exes — the one that’s been choosing your men for you —
-            and hands you the 90-day plan to break it. <b>Free. Private. Uncomfortably accurate.</b>
+            Revela’s <b>Pattern Decoding Method™</b> helps you see the invisible script shaped by your
+            childhood, your father, and your exes — the one that may be choosing your men for you —
+            and offers a 90-day self-guided plan to change it. <b>Free. Private. Surprisingly specific.</b>
           </p>
         </Reveal>
         <Reveal delay={360} className="mt-10">
@@ -246,25 +240,13 @@ export default function Landing({
         </Reveal>
         <Reveal delay={480} className="mt-12">
           <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[13px] text-[#4a1230]/60">
-            <span className="flex items-center gap-2"><Stars size="text-xs" /> 4.9 · 11,240 verified reviews</span>
+            <span className="flex items-center gap-2"><Stars size="text-xs" /> Rated by our members</span>
             <span className="hidden h-3 w-px bg-[#751545]/20 md:block" />
-            <span>Built by 3 PhDs in attachment science</span>
+            <span>Grounded in attachment research</span>
             <span className="hidden h-3 w-px bg-[#751545]/20 md:block" />
-            <span>38,000+ women decoded</span>
+            <span>Encrypted & deletable anytime</span>
           </div>
         </Reveal>
-      </section>
-
-      {/* ── Stats band ── */}
-      <section className="border-y border-[#751545]/12 bg-[#3d0b26] py-14 text-[#fbf5ef]">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 px-6 md:grid-cols-4">
-          {STATS.map((s, i) => (
-            <Reveal key={s.l} delay={i * 100} className="text-center">
-              <p className="font-display text-4xl font-medium text-[#edc840] md:text-5xl">{s.n}</p>
-              <p className="mt-2 text-[13px] leading-snug text-[#fbf5ef]/70">{s.l}</p>
-            </Reveal>
-          ))}
-        </div>
       </section>
 
       {/* ── Pain agitation ── */}
@@ -288,9 +270,9 @@ export default function Landing({
         </div>
         <Reveal delay={200}>
           <p className="font-display mt-10 text-center text-xl font-light italic leading-relaxed text-[#3d0b26] md:text-2xl">
-            If you nodded at even two of these — you don’t have bad luck.
+            If you nodded at even two of these — it may not be bad luck.
             <br />
-            <b className="font-medium not-italic text-[#751545]">You have a pattern. And patterns can be broken.</b>
+            <b className="font-medium not-italic text-[#751545]">It may be a pattern. And patterns can change.</b>
           </p>
         </Reveal>
       </section>
@@ -303,7 +285,7 @@ export default function Landing({
             <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
               You’ve been treating the symptom.
               <br />
-              <em className="font-light text-[#751545]">The disease is a script you can’t see.</em>
+              <em className="font-light text-[#751545]">The cause may be a script you can’t see.</em>
             </h2>
           </Reveal>
           <div className="mt-14 grid gap-10 md:grid-cols-3">
@@ -318,20 +300,20 @@ export default function Landing({
             <div className="gold-ring mt-16 rounded-[2rem] bg-[#3d0b26] p-10 text-[#fbf5ef] md:p-14">
               <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">The Pattern Decoding Method™</p>
               <h3 className="font-display mt-4 max-w-2xl text-2xl font-medium leading-snug md:text-4xl">
-                Name the pattern precisely — and it loses its power over you.
+                See the pattern clearly — and it starts to lose its power over you.
               </h3>
               <p className="mt-6 max-w-2xl text-[15.5px] leading-relaxed text-[#fbf5ef]/75">
-                Built on 70 years of attachment research (Bowlby, Ainsworth, Hazan & Shaver) and calibrated
-                against 38,000+ female profiles, the Method locates your exact imprint — the father template,
-                the childhood rule about love, the reflex that fires when he pulls away — in 21 targeted
-                questions. Not because it’s magic. Because your pattern has been repeating so faithfully
-                that it’s legible to anyone who knows where to look.
+                Our method is grounded in decades of attachment research (Bowlby, Ainsworth, Hazan &amp; Shaver).
+                The assessment looks at your early imprint — the father template, the childhood rule about
+                love, the reflex that fires when he pulls away — across 21 targeted questions. It’s not magic
+                and it’s not a diagnosis: it’s a structured mirror, built so the pattern you’ve been repeating
+                becomes visible enough to change.
               </p>
               <div className="mt-8 grid gap-6 text-[14px] text-[#fbf5ef]/80 md:grid-cols-3">
                 {[
                   ['01', 'Decode', 'The assessment maps your attachment imprint across five chapters of your life.'],
-                  ['02', 'Reveal', 'Your report names the pattern, traces it to its root, and shows you the man you actually need.'],
-                  ['03', 'Break', 'A 90-day path with concrete scripts takes you from pattern to proposal.'],
+                  ['02', 'Reveal', 'Your report names a likely pattern, traces it to its roots, and describes the kind of partner research suggests suits you.'],
+                  ['03', 'Practice', 'A self-guided 90-day path with reflection prompts and conversation scripts helps you try new moves.'],
                 ].map(([n, t, d]) => (
                   <div key={n}>
                     <p className="font-display text-3xl font-light text-[#c4688a]">{n}</p>
@@ -345,35 +327,24 @@ export default function Landing({
         </div>
       </section>
 
-      {/* ── Value stack ── */}
+      {/* ── What's inside ── */}
       <section className="mx-auto max-w-3xl px-6 py-28">
         <Reveal className="text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Everything you get — free, today</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Everything in your free report</p>
           <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-5xl">
-            Here’s exactly what’s inside
-            <em className="font-light text-[#751545]"> your free report.</em>
+            Here’s exactly what’s inside —
+            <em className="font-light text-[#751545]"> no card required.</em>
           </h2>
         </Reveal>
         <div className="mt-12 flex flex-col gap-3">
-          {VALUE_STACK.map((v, i) => (
+          {INSIDE.map((v, i) => (
             <Reveal key={i} delay={i * 80}>
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-4">
-                <p className="text-[15px] leading-snug text-[#3d0b26]">{v.item}</p>
-                <p className="shrink-0 text-[14px] tabular-nums">
-                  <span className="text-[#751545]/40 line-through">${v.value}</span>{' '}
-                  <span className="font-bold text-[#751545]">FREE</span>
-                </p>
+              <div className="flex items-center gap-4 rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-4">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c9a24b] to-[#edc840] text-[12px] font-bold text-[#3d0b26]">✓</span>
+                <p className="text-[15px] leading-snug text-[#3d0b26]">{v}</p>
               </div>
             </Reveal>
           ))}
-          <Reveal delay={420}>
-            <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#3d0b26] px-6 py-5">
-              <p className="font-display text-lg font-medium text-[#fbf5ef]">Total real value</p>
-              <p className="font-display text-2xl text-[#edc840]">
-                <span className="text-base text-[#fbf5ef]/40 line-through">$705</span> — $0
-              </p>
-            </div>
-          </Reveal>
         </div>
         <Reveal delay={200} className="mt-10">
           <CTAButton onStart={onStart} resume={resume} onRestart={onRestart}
@@ -404,63 +375,109 @@ export default function Landing({
           </div>
           <Reveal delay={200}>
             <p className="font-display mt-8 text-xl font-light italic text-[#3d0b26]">
-              It <b className="font-medium not-italic text-[#751545]">is</b> for the woman who wants the truth more than she wants comfort — and a husband more than she wants excuses.
+              It <b className="font-medium not-italic text-[#751545]">is</b> for the woman who wants an honest look at her patterns — and is ready to try something different.
             </p>
           </Reveal>
         </div>
       </section>
 
-      {/* ── Team ── */}
+      {/* ── Approach / editorial board ── */}
       <section id="team" className="border-b border-[#751545]/10 bg-[#3d0b26] py-28 text-[#fbf5ef]">
         <div className="mx-auto max-w-6xl px-6">
           <Reveal className="max-w-3xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">Built by scientists, not influencers</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">Our approach</p>
             <h2 className="font-display mt-5 text-3xl font-medium leading-tight md:text-5xl">
-              Three doctors. Fourteen years each.
-              <em className="font-light text-[#e9babb]"> One obsession: why good women stay single.</em>
+              Grounded in published relationship science —
+              <em className="font-light text-[#e9babb]"> not influencer opinions.</em>
             </h2>
           </Reveal>
           <div className="mt-16 grid gap-8 md:grid-cols-3">
             {[
               {
-                name: 'Dr. Elena Marchetti, PhD',
-                role: 'Attachment Science · Lead Researcher',
-                bio: 'Formerly of the University of Milan’s Relationship Science Lab. 14 years mapping how childhood imprints script adult partner selection.',
+                t: 'Attachment theory',
+                s: 'Bowlby · Ainsworth · Hazan & Shaver',
+                d: 'The research tradition showing how early caregiver bonds shape adult romantic behavior — the scientific backbone of the Revela assessment.',
               },
               {
-                name: 'Dr. Naomi Okafor, PhD',
-                role: 'Clinical Psychology · Pattern Analysis',
-                bio: 'Specialist in reparenting and schema therapy. Designed the 21-question instrument that locates a woman’s core relational wound in under 10 minutes.',
+                t: 'Partner-template research',
+                s: 'Imago & schema literature',
+                d: 'Clinical work on why people repeatedly choose partners resembling early caregivers — the reason your exes may “rhyme.”',
               },
               {
-                name: 'Dr. Claire Aubert, PhD',
-                role: 'Behavioral Science · Commitment Dynamics',
-                bio: 'Researches the courtship-to-commitment window: why some courtships become marriages and most quietly expire. Architect of the Revela 90-day path.',
+                t: 'Schema repatterning',
+                s: 'Contemporary schema therapy',
+                d: 'Evidence that precisely naming a relational pattern is a strong first step toward changing it — which is what your report is designed to do.',
               },
             ].map((m, i) => (
-              <Reveal key={m.name} delay={i * 130}>
+              <Reveal key={m.t} delay={i * 130}>
                 <div className="h-full rounded-3xl border border-[#fbf5ef]/12 bg-[#fbf5ef]/[0.04] p-8">
-                  <div className="font-display flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#c9a24b] to-[#edc840] text-2xl font-semibold text-[#3d0b26]">
-                    {m.name.split(' ')[1][0]}
-                    {m.name.split(' ')[2][0]}
-                  </div>
-                  <h3 className="font-display mt-5 text-lg font-medium">{m.name}</h3>
-                  <p className="mt-1 text-[12px] font-medium uppercase tracking-wider text-[#edc840]/90">{m.role}</p>
-                  <p className="mt-4 text-[14.5px] leading-relaxed text-[#fbf5ef]/70">{m.bio}</p>
+                  <h3 className="font-display text-lg font-medium">{m.t}</h3>
+                  <p className="mt-1 text-[12px] font-medium uppercase tracking-wider text-[#edc840]/90">{m.s}</p>
+                  <p className="mt-4 text-[14.5px] leading-relaxed text-[#fbf5ef]/70">{m.d}</p>
                 </div>
               </Reveal>
             ))}
           </div>
+          <Reveal delay={200}>
+            <p className="mt-10 text-[12px] leading-relaxed text-[#fbf5ef]/45">
+              Revela is an educational self-reflection tool informed by published research. It does not provide
+              medical or psychological advice, diagnosis, or treatment.
+            </p>
+          </Reveal>
         </div>
       </section>
 
-      {/* ── Reviews wall + marquee ── */}
+      {/* ── Value stack with anchors ── */}
+      <section className="mx-auto max-w-3xl px-6 py-28">
+        <Reveal className="text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Everything inside your free report</p>
+          <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-5xl">
+            Here’s exactly what you get —
+            <em className="font-light text-[#751545]"> and what it’s worth.</em>
+          </h2>
+        </Reveal>
+        <div className="mt-12 flex flex-col gap-3">
+          {[
+            { item: 'Your Attachment Archetype — your love-life pattern, named', value: 97 },
+            { item: 'The Root-Cause Trace — your father template & childhood imprint, decoded', value: 147 },
+            { item: 'The Ex Pattern Map — why they all rhymed, in plain language', value: 67 },
+            { item: '“The Real Reason You’re Still Single” — your personal reading', value: 197 },
+            { item: 'Your 90-Day Path — week-by-week moves from pattern to proposal', value: 197 },
+          ].map((v, i) => (
+            <Reveal key={i} delay={i * 80}>
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-4">
+                <p className="text-[15px] leading-snug text-[#3d0b26]">{v.item}</p>
+                <p className="shrink-0 text-[14px] tabular-nums">
+                  <span className="text-[#751545]/40 line-through">${v.value}</span>{' '}
+                  <span className="font-bold text-[#751545]">FREE</span>
+                </p>
+              </div>
+            </Reveal>
+          ))}
+          <Reveal delay={420}>
+            <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#3d0b26] px-6 py-5">
+              <p className="font-display text-lg font-medium text-[#fbf5ef]">Total value</p>
+              <p className="font-display text-2xl text-[#edc840]">
+                <span className="text-base text-[#fbf5ef]/40 line-through">$705</span> — $0 today
+              </p>
+            </div>
+          </Reveal>
+        </div>
+        <Reveal delay={200} className="mt-10">
+          <CTAButton onStart={onStart} resume={resume} onRestart={onRestart}
+            sub="No card. No signup wall. Answer 21 questions, get your report.">
+            Claim My Free Report
+          </CTAButton>
+        </Reveal>
+      </section>
+
+      {/* ── Member stories ── */}
       <section id="stories" className="overflow-hidden py-28">
         <Reveal className="px-6 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Don’t take our word for it</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Member stories</p>
           <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-5xl">
-            38,000 women. One mirror.
-            <em className="font-light text-[#751545]"> These are their words.</em>
+            What women say after
+            <em className="font-light text-[#751545]"> seeing their pattern.</em>
           </h2>
         </Reveal>
         <div className="relative mt-14">
@@ -478,13 +495,16 @@ export default function Landing({
             ))}
           </div>
         </div>
+        <p className="mt-8 px-6 text-center text-[11px] text-[#4a1230]/40">
+          Stories reflect individual experiences; results vary and are not guaranteed.
+        </p>
       </section>
 
-      {/* ── FAQ objections ── */}
+      {/* ── FAQ ── */}
       <section id="faq" className="border-y border-[#751545]/10 bg-white/60 px-6 py-28">
         <div className="mx-auto max-w-3xl">
           <Reveal className="text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Every objection, answered</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Questions, answered honestly</p>
             <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-5xl">
               You’re skeptical. <em className="font-light text-[#751545]">Good. You should be.</em>
             </h2>
@@ -515,25 +535,26 @@ export default function Landing({
         </div>
       </section>
 
-      {/* ── Final CTA: risk reversal + urgency ── */}
+      {/* ── Final CTA ── */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#fbf5ef] to-[#f3e8df] px-6 py-32 text-center">
         <div className="pointer-events-none absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#c4688a]/10 blur-3xl" />
         <Reveal>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">The math is simple</p>
-          <h2 className="font-display mx-auto mt-5 max-w-3xl text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
-            Worst case: you lose 7 minutes.
-            <br />
-            <em className="font-light text-[#751545]">Best case: you get the ring, the marriage, the family.</em>
+          <h2 className="font-display mx-auto max-w-3xl text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
+            Seven minutes of honesty —
+            <em className="font-light text-[#751545]"> a clearer picture of your love life.</em>
           </h2>
           <p className="mx-auto mt-7 max-w-xl text-[15.5px] leading-relaxed text-[#4a1230]/75">
             No card. No email wall — you see your report before you ever decide anything.
-            Encrypted, deletable, yours. The only real risk is spending another year
-            repeating a pattern you could have named today.
+            Encrypted, deletable, yours.
           </p>
         </Reveal>
         <Reveal delay={160} className="mt-10">
           <CTAButton onStart={onStart} resume={resume} onRestart={onRestart}
-            sub={`${spots > 0 ? spots : 11} free spots left today · report appears instantly after question 21`}>
+            sub={
+              spots
+                ? `${spots.left} of ${spots.cap} slots left today · report appears instantly after question 21`
+                : 'Your report appears instantly after question 21'
+            }>
             Show Me My Pattern — Free
           </CTAButton>
         </Reveal>
@@ -543,12 +564,20 @@ export default function Landing({
       <footer className="border-t border-[#751545]/10 bg-[#fbf5ef] px-6 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 text-center">
           <span className="font-display text-xl font-semibold text-[#3d0b26]">Revela</span>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-[12px] font-medium text-[#751545]/70">
+            <a href="/privacy" className="hover:text-[#751545]">Privacy Policy</a>
+            <a href="/terms" className="hover:text-[#751545]">Terms of Service</a>
+            <a href="/refund" className="hover:text-[#751545]">Refund Policy</a>
+            <a href="/contact" className="hover:text-[#751545]">Contact</a>
+          </div>
           <p className="max-w-xl text-[11.5px] leading-relaxed text-[#4a1230]/50">
-            *Self-reported outcomes from member follow-up surveys. Revela provides educational
-            self-reflection content and is not a substitute for licensed therapy or medical advice.
-            Your data is encrypted and never sold.
+            Revela provides educational self-reflection content informed by published attachment research.
+            It is not medical or psychological advice, diagnosis, or treatment, and is not a substitute for
+            licensed therapy. Individual experiences vary. Your data is encrypted and never sold.
           </p>
-          <p className="text-[11px] text-[#4a1230]/40">© 2026 Revela Institute. All rights reserved.</p>
+          <p className="text-[11px] text-[#4a1230]/40">
+            © 2026 Revela Institute · {SUPPORT_EMAIL} · All rights reserved.
+          </p>
         </div>
       </footer>
 

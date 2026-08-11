@@ -1,12 +1,30 @@
-import { Routes, Route } from 'react-router'
+import { Routes, Route, useLocation } from 'react-router'
+import { useEffect } from 'react'
 import Home from './pages/Home'
 import Admin from './pages/Admin'
+import { Privacy, Terms, Refund, Contact } from './pages/Legal'
+
+function ScrollTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [pathname])
+  return null
+}
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/admin" element={<Admin />} />
-    </Routes>
+    <>
+      <ScrollTop />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/refund" element={<Refund />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="*" element={<Home />} />
+      </Routes>
+    </>
   )
 }

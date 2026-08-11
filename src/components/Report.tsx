@@ -1,5 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildReport, type Answers } from '../lib/engine';
+import { STRIPE_PAYMENT_LINK } from '../lib/config';
+import { trpc } from '@/providers/trpc';
+import { getToken } from '../lib/tracker';
+
+/* ── REAL 48h finisher deadline — anchored server-side when she finished ── */
+function useDeadline() {
+  const q = trpc.public.deadline.useQuery({ token: getToken() }, { refetchInterval: 60000, retry: false });
+  const [left, setLeft] = useState('');
+  const dl = q.data?.deadline ?? null;
+
+  useEffect(() => {
+    if (!dl) return;
+    const tick = () => {
+      const ms = Math.max(0, dl - Date.now());
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setLeft(ms === 0 ? 'expired' : `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [dl]);
+
+  return dl ? left : null; // null = not finished / still loading
+}
 
 function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -43,29 +69,7 @@ function SectionTitle({ kicker, children }: { kicker: string; children: React.Re
   );
 }
 
-/* ── 48h finisher deadline ── */
-function useDeadline() {
-  const [left, setLeft] = useState('');
-  useEffect(() => {
-    const KEY = 'revela_deadline';
-    let dl = Number(localStorage.getItem(KEY));
-    if (!dl || dl < Date.now()) {
-      dl = Date.now() + 48 * 3600 * 1000;
-      localStorage.setItem(KEY, String(dl));
-    }
-    const tick = () => {
-      const ms = Math.max(0, dl - Date.now());
-      const h = Math.floor(ms / 3600000);
-      const m = Math.floor((ms % 3600000) / 60000);
-      const s = Math.floor((ms % 60000) / 1000);
-      setLeft(`${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
-    };
-    tick();
-    const iv = setInterval(tick, 1000);
-    return () => clearInterval(iv);
-  }, []);
-  return left;
-}
+
 
 export default function Report({ answers }: { answers: Answers }) {
   const r = buildReport(answers);
@@ -234,8 +238,8 @@ export default function Report({ answers }: { answers: Answers }) {
           <Reveal className="text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">One question remains, {r.name}</p>
             <h2 className="font-display mx-auto mt-5 max-w-2xl text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
-              You now know the pattern.
-              <em className="font-light text-[#751545]"> Knowing is 20%. Breaking it is the other 80.</em>
+              You’ve seen the pattern.
+              <em className="font-light text-[#751545]"> Seeing it is step one. Changing it is the work.</em>
             </h2>
             <p className="mx-auto mt-7 max-w-xl text-[15.5px] leading-relaxed text-[#4a1230]/75">
               This free report showed you the diagnosis. The <b>Revela Blueprint</b> is the treatment —
@@ -243,35 +247,42 @@ export default function Report({ answers }: { answers: Answers }) {
             </p>
           </Reveal>
 
-          {/* deadline */}
-          <Reveal delay={120} className="mt-10">
-            <div className="rounded-2xl border border-[#c9a24b]/40 bg-[#3d0b26] px-6 py-4 text-center">
-              <p className="text-[12px] font-medium uppercase tracking-[0.2em] text-[#fbf5ef]/70">
-                Finisher pricing expires in{' '}
-                <span className="font-display text-lg font-semibold tabular-nums text-[#edc840]">{deadline}</span>
-              </p>
-            </div>
-          </Reveal>
+          {/* real 48h finisher deadline */}
+          {deadline && (
+            <Reveal delay={120} className="mt-10">
+              <div className="rounded-2xl border border-[#c9a24b]/40 bg-[#3d0b26] px-6 py-4 text-center">
+                <p className="text-[12px] font-medium uppercase tracking-[0.2em] text-[#fbf5ef]/70">
+                  Your finisher price expires in{' '}
+                  <span className="font-display text-lg font-semibold tabular-nums text-[#edc840]">{deadline}</span>
+                </p>
+              </div>
+            </Reveal>
+          )}
 
-          {/* stack */}
+          {/* what's inside the Blueprint — with value anchors */}
           <Reveal delay={160}>
             <div className="mt-8 flex flex-col gap-3">
               {[
                 { item: 'The Full 40-Page Blueprint — your complete reading, expanded to every chapter of your life', value: 297 },
                 { item: 'The Exact Scripts — what to text when he pulls away, how to raise marriage in month two', value: 147 },
-                { item: `The ${r.style === 'anxious' ? 'Consistency Test' : r.style === 'avoidant' ? 'Warmth Audit' : 'Calm Standard'} — spot a marriage-minded man within 3 dates`, value: 97 },
-                { item: 'Bonus: Private 45-minute Pattern-Break session with a Revela doctor', value: 250 },
+                { item: `The ${r.style === 'anxious' ? 'Consistency Test' : r.style === 'avoidant' ? 'Warmth Audit' : 'Calm Standard'} — a checklist for spotting commitment-minded men early`, value: 97 },
+                { item: 'Bonus: Private 45-minute Pattern-Break session with a Revela coach', value: 250 },
                 { item: 'Bonus: “From Yes to Ring” — the commitment-window playbook', value: 97 },
               ].map((v, i) => (
                 <div key={i} className="flex items-center justify-between gap-4 rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-4">
-                  <p className="text-[14.5px] leading-snug text-[#3d0b26]">{v.item}</p>
+                  <div className="flex items-center gap-4">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c9a24b] to-[#edc840] text-[12px] font-bold text-[#3d0b26]">✓</span>
+                    <p className="text-[14.5px] leading-snug text-[#3d0b26]">{v.item}</p>
+                  </div>
                   <p className="shrink-0 text-[13.5px] tabular-nums text-[#751545]/45 line-through">${v.value}</p>
                 </div>
               ))}
               <div className="mt-2 flex items-center justify-between rounded-2xl bg-[#3d0b26] px-6 py-5">
                 <div>
                   <p className="font-display text-lg font-medium text-[#fbf5ef]">Total value $888</p>
-                  <p className="text-[12px] text-[#fbf5ef]/55">Today, for finishers only</p>
+                  <p className="text-[12px] text-[#fbf5ef]/55">
+                    Finisher price — one-time payment · instant access
+                  </p>
                 </div>
                 <p className="font-display text-4xl font-medium text-[#edc840]">
                   <span className="mr-2 align-middle text-lg text-[#fbf5ef]/40 line-through">$297</span>$97
@@ -285,26 +296,27 @@ export default function Report({ answers }: { answers: Answers }) {
             <div className="gold-ring mt-8 flex items-start gap-5 rounded-2xl bg-white/85 p-6 text-left">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c9a24b] to-[#edc840] text-xl text-[#3d0b26]">✓</span>
               <div>
-                <p className="font-display text-lg font-medium text-[#3d0b26]">The Uncomfortable-Truth Guarantee</p>
+                <p className="font-display text-lg font-medium text-[#3d0b26]">30-day money-back guarantee</p>
                 <p className="mt-1.5 text-[14px] leading-relaxed text-[#4a1230]/75">
-                  If your Blueprint doesn’t show you at least one insight about yourself that you’ve
-                  never heard before, email us within 30 days and we refund every cent — and you keep
-                  the Blueprint. You risk nothing except another year of the same pattern.
+                  If the Blueprint isn’t right for you, email us within 30 days of purchase for a full
+                  refund — no questions asked, no forms to fill. See our refund policy for details.
                 </p>
               </div>
             </div>
           </Reveal>
 
           <Reveal delay={240} className="mt-10 text-center">
-            <button className="btn-shine group inline-flex items-center gap-3 rounded-full px-10 py-5 text-base font-semibold text-white md:text-lg">
+            <a
+              href={STRIPE_PAYMENT_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-shine group inline-flex items-center gap-3 rounded-full px-10 py-5 text-base font-semibold text-white md:text-lg"
+            >
               <span>Unlock My Full Blueprint — $97</span>
               <span className="transition-transform duration-300 group-hover:translate-x-1.5">→</span>
-            </button>
+            </a>
             <p className="mt-4 text-[12.5px] text-[#751545]/55">
-              Only 7 Blueprint sessions remain this week · A copy of this free report was sent to {answers.email || 'your inbox'}
-            </p>
-            <p className="font-display mx-auto mt-8 max-w-md text-[15px] italic leading-relaxed text-[#751545]/60">
-              “A year from now you’ll wish you had started today. The women in our testimonials did.”
+              Secure checkout via Stripe · 30-day money-back guarantee · A copy of this free report was sent to {answers.email || 'your inbox'}
             </p>
           </Reveal>
         </div>

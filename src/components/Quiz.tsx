@@ -239,6 +239,15 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
                   {q.type === 'date' && value && getZodiac(value) && (
                     <ZodiacBadge zodiac={getZodiac(value)!} name={answers.name} />
                   )}
+                  {/* consent note — required for ads & payment compliance */}
+                  {q.type === 'email' && (
+                    <p className="mt-3 max-w-md text-[11.5px] leading-relaxed text-[#751545]/45">
+                      By continuing you agree to our{' '}
+                      <a href="/privacy" className="underline underline-offset-2">Privacy Policy</a> and{' '}
+                      <a href="/terms" className="underline underline-offset-2">Terms</a>. We email your report
+                      and occasional guidance — unsubscribe anytime. Never sold, never shared.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -335,9 +344,9 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
       <div className="pointer-events-none fixed bottom-6 left-6 z-40 hidden md:block">
         <p key={encIdx} className="animate-rise-in font-display max-w-[240px] text-[15px] italic leading-snug text-[#751545]/55">
           {progress >= 80
-            ? '“You’re in the top 9% — almost nobody quits here.”'
+            ? '“Nearly there — your report is taking shape.”'
             : progress >= 50
-              ? '“Past the halfway point. Most women never get this honest.”'
+              ? '“Past the halfway point. This honesty is rare.”'
               : `“${ENCOURAGEMENTS[encIdx]}”`}
         </p>
       </div>

@@ -22,6 +22,7 @@ export const sessions = mysqlTable("sessions", {
   email: varchar("email", { length: 190 }),
   phone: varchar("phone", { length: 60 }),
   completed: boolean("completed").notNull().default(false),
+  finishedAt: timestamp("finished_at"),
   durationMs: int("duration_ms").notNull().default(0),
   lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),

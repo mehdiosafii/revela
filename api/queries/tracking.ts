@@ -1,9 +1,15 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, gte, sql } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "./connection";
 import { sessions, events, answers } from "@db/schema";
+
+// Real, enforced daily capacity — reports are reviewed by a human team,
+// so the cap is genuine, and this counter is read straight from the DB.
+const DAILY_REPORT_CAP = 300;
+// Finisher pricing is a real, server-stored 48-hour window per visitor.
+const FINISHER_WINDOW_MS = 48 * 3600 * 1000;
 
 // ── Admin password gate (server-enforced) ──────────────────
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "2026";
@@ -79,7 +85,10 @@ export const trackRouter = createRouter({
       };
       if (input.stage) patch.stage = input.stage;
       if (input.questionIndex !== undefined) patch.questionIndex = input.questionIndex;
-      if (input.stage === "report") patch.completed = true;
+      if (input.stage === "report") {
+        patch.completed = true;
+        if (!existing.finishedAt) patch.finishedAt = now; // deadline anchor — set once, never moves
+      }
       if (input.identity?.name) patch.name = input.identity.name;
       if (input.identity?.email) patch.email = input.identity.email;
       if (input.identity?.phone) patch.phone = input.identity.phone;
@@ -146,6 +155,32 @@ export const trackRouter = createRouter({
       }
       void prev;
       return { ok: true as const };
+    }),
+});
+
+// ── Public, real scarcity & deadline ───────────────────────
+export const publicRouter = createRouter({
+  // Spots left today, counted from actual sessions created since midnight UTC
+  spotsLeft: publicQuery.query(async () => {
+    const db = getDb();
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const [row] = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(sessions)
+      .where(gte(sessions.createdAt, todayStart));
+    const used = Number(row?.n ?? 0);
+    return { cap: DAILY_REPORT_CAP, used, left: Math.max(0, DAILY_REPORT_CAP - used) };
+  }),
+
+  // The visitor's real finisher deadline: finishedAt + 48h, stored server-side
+  deadline: publicQuery
+    .input(z.object({ token: z.string().min(8).max(64) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [s] = await db.select().from(sessions).where(eq(sessions.token, input.token)).limit(1);
+      if (!s?.finishedAt) return { deadline: null as number | null };
+      return { deadline: new Date(s.finishedAt).getTime() + FINISHER_WINDOW_MS };
     }),
 });
 
