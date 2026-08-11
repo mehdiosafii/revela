@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { buildReport, type Answers, type Report as BuiltInReport } from '../lib/engine';
 import { STRIPE_PAYMENT_LINK } from '../lib/config';
 import { trpc } from '@/providers/trpc';
@@ -79,6 +79,14 @@ function toView(r: BuiltInReport, deep: DeepReport | null): View {
     path: r.path,
     closingLine: null,
   };
+}
+
+/* render *emphasis* markers from report text as real italics */
+function em(text: string): React.ReactNode {
+  const parts = text.split(/\*([^*]+)\*/g);
+  return parts.map((part, i) =>
+    i % 2 === 1 ? <em key={i} className="italic">{part}</em> : <React.Fragment key={i}>{part}</React.Fragment>,
+  );
 }
 
 /* ── REAL 48h finisher deadline — anchored server-side when she finished ── */
@@ -207,7 +215,7 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
               <div className="mt-8 flex flex-col gap-5">
                 {v.openingLetter.map((para, i) => (
                   <Reveal key={i} delay={i * 100}>
-                    <p className="font-display text-[17px] font-light leading-[1.85] text-[#3d0b26]">{para}</p>
+                    <p className="font-display text-[17px] font-light leading-[1.85] text-[#3d0b26]">{em(para)}</p>
                   </Reveal>
                 ))}
               </div>
@@ -225,7 +233,7 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
                   <Reveal key={i} delay={i * 120}>
                     <div className="flex gap-4 rounded-2xl border border-[#751545]/12 bg-[#fbf5ef] p-6">
                       <span className="font-display shrink-0 text-2xl text-[#c9a24b]">✦</span>
-                      <p className="text-[15px] leading-relaxed text-[#4a1230]/85">{p}</p>
+                      <p className="text-[15px] leading-relaxed text-[#4a1230]/85">{em(p)}</p>
                     </div>
                   </Reveal>
                 ))}
@@ -245,7 +253,7 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
             <div className="mt-8 flex flex-col gap-5">
               {v.corePattern.map((para, i) => (
                 <Reveal key={i} delay={i * 100}>
-                  <p className="text-[16px] leading-[1.8] text-[#4a1230]/85">{para}</p>
+                  <p className="text-[16px] leading-[1.8] text-[#4a1230]/85">{em(para)}</p>
                 </Reveal>
               ))}
             </div>
@@ -265,7 +273,7 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
             <div className="mt-8 flex flex-col gap-5">
               {v.rootCause.map((para, i) => (
                 <Reveal key={i} delay={i * 100}>
-                  <p className="font-display text-[16.5px] font-light leading-[1.85] text-[#3d0b26]">{para}</p>
+                  <p className="font-display text-[16.5px] font-light leading-[1.85] text-[#3d0b26]">{em(para)}</p>
                 </Reveal>
               ))}
             </div>
@@ -284,7 +292,7 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
                 <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">Between your lines</p>
                 {v.hiddenTruth.map((para, i) => (
                   <p key={i} className="font-display mt-4 text-lg font-light italic leading-relaxed text-[#fbf5ef]/90">
-                    {para}
+                    {em(para)}
                   </p>
                 ))}
               </div>
@@ -301,7 +309,7 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
                 </p>
                 {v.herWordsReflected ? (
                   v.herWordsReflected.map((para, i) => (
-                    <p key={i} className="mt-4 text-[14px] leading-relaxed text-[#fbf5ef]/70">{para}</p>
+                    <p key={i} className="mt-4 text-[14px] leading-relaxed text-[#fbf5ef]/70">{em(para)}</p>
                   ))
                 ) : (
                   <p className="mt-4 text-[13px] leading-relaxed text-[#fbf5ef]/60">
@@ -348,7 +356,7 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#751545] to-[#c4688a] text-[11px] font-bold text-white">
                     {i + 1}
                   </span>
-                  <p className="text-[14.5px] leading-relaxed text-[#4a1230]/85">{m}</p>
+                  <p className="text-[14.5px] leading-relaxed text-[#4a1230]/85">{em(m)}</p>
                 </div>
               </Reveal>
             ))}
@@ -376,7 +384,7 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
                   </div>
                   <div className="pt-2">
                     <h3 className="font-display text-xl font-medium text-[#3d0b26]">{s.title}</h3>
-                    <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-[#4a1230]/75">{s.text}</p>
+                    <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-[#4a1230]/75">{em(s.text)}</p>
                   </div>
                 </div>
               </Reveal>
