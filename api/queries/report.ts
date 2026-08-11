@@ -2,10 +2,12 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "../middleware";
 
 // ─────────────────────────────────────────────────────────────
-// Claude-powered deep report generation.
-// Set CLAUDE_API_KEY in .env (recommended) — the key never
-// touches the client. If unset, the client falls back to the
-// built-in generator.
+// AI-powered deep report generation with a provider chain:
+//   1. Moonshot  (MOONSHOT_API_KEY)
+//   2. Claude    (ANTHROPIC_API_KEY)  ← backup
+// Keys live in .env and never touch the client. If every
+// provider fails, the client falls back to the built-in
+// generator, so a visitor always gets a report.
 // ─────────────────────────────────────────────────────────────
 
 const answerSchema = z.object({
@@ -96,49 +98,130 @@ RULES:
 - Total length: substantial — this is a premium report. Aim for depth over brevity.`;
 }
 
+type GenResult =
+  | { ok: true; report: ClaudeReport; provider: string }
+  | { ok: false; reason: string; httpStatus?: number; detail?: string };
+
+function parseReport(raw: string): ClaudeReport | null {
+  try {
+    const clean = raw.replace(/```json|```/g, "").trim();
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start === -1 || end === -1) return null;
+    return JSON.parse(clean.slice(start, end + 1)) as ClaudeReport;
+  } catch {
+    return null;
+  }
+}
+
+async function tryMoonshot(input: z.infer<typeof answerSchema>): Promise<GenResult> {
+  const key = process.env.MOONSHOT_API_KEY;
+  if (!key) return { ok: false, reason: "no_key" };
+  try {
+    const res = await fetch("https://api.moonshot.cn/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: "moonshot-v1-32k",
+        temperature: 0.8,
+        max_tokens: 4096,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: buildUserPrompt(input) },
+        ],
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error("Moonshot API error", res.status, txt.slice(0, 500));
+      let detail = "";
+      try {
+        detail = (JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? "";
+      } catch { /* ignore */ }
+      return { ok: false, reason: "api_error", httpStatus: res.status, detail: detail.slice(0, 200) };
+    }
+    const data = (await res.json()) as { choices: { message: { content: string } }[] };
+    const report = parseReport(data.choices?.[0]?.message?.content ?? "");
+    if (!report) return { ok: false, reason: "parse_error" };
+    return { ok: true, report, provider: "moonshot" };
+  } catch (e) {
+    console.error("Moonshot generation failed", e);
+    return { ok: false, reason: "error" };
+  }
+}
+
+async function tryClaude(input: z.infer<typeof answerSchema>): Promise<GenResult> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return { ok: false, reason: "no_key" };
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 4096,
+        temperature: 0.8,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: buildUserPrompt(input) }],
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error("Claude API error", res.status, txt.slice(0, 500));
+      let detail = "";
+      try {
+        detail = (JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? "";
+      } catch { /* ignore */ }
+      return { ok: false, reason: "api_error", httpStatus: res.status, detail: detail.slice(0, 200) };
+    }
+    const data = (await res.json()) as { content: { type: string; text?: string }[] };
+    const raw = data.content?.find((b) => b.type === "text")?.text ?? "";
+    const report = parseReport(raw);
+    if (!report) return { ok: false, reason: "parse_error" };
+    return { ok: true, report, provider: "claude" };
+  } catch (e) {
+    console.error("Claude generation failed", e);
+    return { ok: false, reason: "error" };
+  }
+}
+
 export const reportRouter = createRouter({
-  hasClaude: publicQuery.query(() => ({ enabled: !!process.env.MOONSHOT_API_KEY })),
+  hasClaude: publicQuery.query(() => ({
+    enabled: !!(process.env.MOONSHOT_API_KEY || process.env.ANTHROPIC_API_KEY),
+  })),
 
   generate: publicQuery.input(answerSchema).mutation(async ({ input }) => {
-    const key = process.env.MOONSHOT_API_KEY;
-    if (!key) {
-      return { ok: false as const, reason: "no_key" as const };
-    }
-    try {
-      const res = await fetch("https://api.moonshot.cn/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({
-          model: "moonshot-v1-32k",
-          temperature: 0.8,
-          max_tokens: 4096,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: buildUserPrompt(input) },
-          ],
-        }),
-        signal: AbortSignal.timeout(90000),
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        console.error("Moonshot API error", res.status, txt.slice(0, 500));
-        let detail = "";
-        try {
-          detail = (JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? "";
-        } catch { /* ignore */ }
-        return { ok: false as const, reason: "api_error" as const, httpStatus: res.status, detail: detail.slice(0, 200) };
+    // provider chain: Moonshot → Claude
+    const attempts: { name: string; result: GenResult }[] = [];
+    for (const [name, fn] of [["moonshot", tryMoonshot], ["claude", tryClaude]] as const) {
+      const result = await fn(input);
+      attempts.push({ name, result });
+      if (result.ok) {
+        return { ok: true as const, report: result.report, provider: result.provider };
       }
-      const data = (await res.json()) as { choices: { message: { content: string } }[] };
-      const raw = data.choices?.[0]?.message?.content ?? "";
-      const clean = raw.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean) as ClaudeReport;
-      return { ok: true as const, report: parsed };
-    } catch (e) {
-      console.error("Moonshot generation failed", e);
-      return { ok: false as const, reason: "error" as const };
+      // a missing key means "not configured" — skip silently; a real API error is worth logging
+      if (result.reason !== "no_key") {
+        console.error(`Provider ${name} failed:`, result.reason, result.httpStatus ?? "", result.detail ?? "");
+      }
     }
+    const failed = attempts
+      .map((a) => a.result)
+      .filter((r): r is Extract<GenResult, { ok: false }> => !r.ok);
+    const first = failed.find((r) => r.reason !== "no_key") ?? failed[0];
+    return {
+      ok: false as const,
+      reason: first?.reason ?? ("error" as const),
+      httpStatus: first?.httpStatus,
+      detail: first?.detail,
+    };
   }),
 });

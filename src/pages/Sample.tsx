@@ -9,7 +9,7 @@ export default function Sample() {
           Sample report — this is the level of depth every woman receives
         </p>
       </div>
-      <Report answers={SAMPLE_ANSWERS} deep={SAMPLE_DEEP} />
+      <Report answers={SAMPLE_ANSWERS} deep={new URLSearchParams(window.location.search).has('fallback') ? null : SAMPLE_DEEP} />
     </div>
   );
 }
