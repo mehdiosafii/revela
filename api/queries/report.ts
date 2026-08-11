@@ -123,7 +123,11 @@ export const reportRouter = createRouter({
       if (!res.ok) {
         const txt = await res.text();
         console.error("Claude API error", res.status, txt.slice(0, 500));
-        return { ok: false as const, reason: "api_error" as const };
+        let detail = "";
+        try {
+          detail = (JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? "";
+        } catch { /* ignore */ }
+        return { ok: false as const, reason: "api_error" as const, httpStatus: res.status, detail: detail.slice(0, 200) };
       }
       const data = (await res.json()) as { content: { type: string; text: string }[] };
       const raw = data.content?.find((c) => c.type === "text")?.text ?? "";
