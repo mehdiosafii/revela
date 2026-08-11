@@ -331,10 +331,14 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
         </div>
       </main>
 
-      {/* encouragement strip */}
+      {/* encouragement strip — progress-aware */}
       <div className="pointer-events-none fixed bottom-6 left-6 z-40 hidden md:block">
-        <p key={encIdx} className="animate-rise-in font-display max-w-[220px] text-[15px] italic leading-snug text-[#751545]/55">
-          “{ENCOURAGEMENTS[encIdx]}”
+        <p key={encIdx} className="animate-rise-in font-display max-w-[240px] text-[15px] italic leading-snug text-[#751545]/55">
+          {progress >= 80
+            ? '“You’re in the top 9% — almost nobody quits here.”'
+            : progress >= 50
+              ? '“Past the halfway point. Most women never get this honest.”'
+              : `“${ENCOURAGEMENTS[encIdx]}”`}
         </p>
       </div>
 
