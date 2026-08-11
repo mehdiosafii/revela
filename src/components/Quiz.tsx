@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { QUESTIONS, ENCOURAGEMENTS, getZodiac, type Answers, type Question } from '../lib/engine';
 import SocialProof from './SocialProof';
+import ZodiacBadge from './ZodiacBadge';
 
 interface Props {
   answers: Answers;
@@ -68,11 +69,10 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
   const canContinue = () => {
     if (q.type === 'tel') return true; // optional
     if (q.type === 'photo') return true; // skippable
-    if (q.type === 'zodiac' || q.type === 'revelation') return true;
+    if (q.type === 'revelation') return true;
     return value.trim().length > 0;
   };
 
-  const zodiac = getZodiac(answers.dob);
 
   return (
     <div className="bg-grain flex min-h-screen flex-col">
@@ -98,27 +98,6 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
           key={step}
           className={`w-full max-w-xl ${leaving ? 'animate-step-out' : 'animate-step-in'}`}
         >
-          {/* ── Zodiac interstitial ── */}
-          {q.type === 'zodiac' && (
-            <div className="text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">A small discovery</p>
-              <div className="animate-pulse-soft font-display mx-auto mt-8 flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-[#751545] to-[#c4688a] text-6xl text-white shadow-[0_20px_50px_-12px_rgba(117,21,69,0.5)]">
-                {zodiac?.symbol ?? '✦'}
-              </div>
-              <h2 className="font-display mt-8 text-3xl font-medium leading-snug text-[#3d0b26] md:text-4xl">
-                {name}, you’re a <em className="text-[#751545]">{zodiac?.sign ?? 'mystery'}</em>.
-              </h2>
-              {zodiac && (
-                <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-[#4a1230]/75">
-                  A {zodiac.element} sign — which means {zodiac.trait}.
-                </p>
-              )}
-              <p className="mt-5 text-[12px] italic text-[#751545]/50">
-                (We don’t use astrology in your analysis. But admit it — that landed.)
-              </p>
-            </div>
-          )}
-
           {/* ── Revelation interstitial (after the first 5 questions) ── */}
           {q.type === 'revelation' && (
             <div className="text-center">
@@ -137,7 +116,7 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
           )}
 
           {/* ── Regular question ── */}
-          {q.type !== 'zodiac' && q.type !== 'revelation' && (
+          {q.type !== 'revelation' && (
             <>
               {q.chapter && (
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#c9a24b]">{q.chapter}</p>
@@ -198,6 +177,10 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
                     placeholder={q.placeholder}
                     className="input-line"
                   />
+                  {/* live zodiac reveal under the birth-date field */}
+                  {q.type === 'date' && value && getZodiac(value) && (
+                    <ZodiacBadge zodiac={getZodiac(value)!} name={answers.name} />
+                  )}
                 </div>
               )}
 

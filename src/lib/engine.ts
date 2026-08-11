@@ -12,7 +12,6 @@ export type QType =
   | 'qcm'
   | 'textarea'
   | 'photo'
-  | 'zodiac'
   | 'revelation';
 
 export interface Option {
@@ -68,7 +67,7 @@ export const QUESTIONS: Question[] = [
     placeholder: '+1 (555) 000-0000',
     motivation: 'Almost through the formalities →',
   },
-  { id: 'zodiac', type: 'zodiac', title: '', motivation: 'Intrigued? Keep going →' },
+
 
   // — Q5: first real question, then the revelation hits —
   {
@@ -285,21 +284,54 @@ export interface Zodiac {
   symbol: string;
   element: string;
   trait: string;
+  stars: [number, number][];
+  lines: [number, number][];
 }
 
-const ZODIACS: { sign: string; symbol: string; element: string; trait: string; from: [number, number]; to: [number, number] }[] = [
-  { sign: 'Capricorn', symbol: '♑', element: 'Earth', trait: 'you build walls only the patient ever climb', from: [12, 22], to: [1, 19] },
-  { sign: 'Aquarius', symbol: '♒', element: 'Air', trait: 'you love from a thoughtful distance', from: [1, 20], to: [2, 18] },
-  { sign: 'Pisces', symbol: '♓', element: 'Water', trait: 'you feel everything, including what he never says', from: [2, 19], to: [3, 20] },
-  { sign: 'Aries', symbol: '♈', element: 'Fire', trait: 'you chase — and get bored when caught', from: [3, 21], to: [4, 19] },
-  { sign: 'Taurus', symbol: '♉', element: 'Earth', trait: 'you love slowly, and leave even slower', from: [4, 20], to: [5, 20] },
-  { sign: 'Gemini', symbol: '♊', element: 'Air', trait: 'your heart runs two stories at once', from: [5, 21], to: [6, 20] },
-  { sign: 'Cancer', symbol: '♋', element: 'Water', trait: 'you mother the men you should be dating', from: [6, 21], to: [7, 22] },
-  { sign: 'Leo', symbol: '♌', element: 'Fire', trait: 'you need admiration as much as affection', from: [7, 23], to: [8, 22] },
-  { sign: 'Virgo', symbol: '♍', element: 'Earth', trait: 'you audit men like spreadsheets — and miss the magic', from: [8, 23], to: [9, 22] },
-  { sign: 'Libra', symbol: '♎', element: 'Air', trait: 'you lose yourself keeping the peace', from: [9, 23], to: [10, 22] },
-  { sign: 'Scorpio', symbol: '♏', element: 'Water', trait: 'you test men until they fail — or run', from: [10, 23], to: [11, 21] },
-  { sign: 'Sagittarius', symbol: '♐', element: 'Fire', trait: 'you want roots and wings at the same time', from: [11, 22], to: [12, 21] },
+type ZEntry = Omit<Zodiac, 'stars' | 'lines'> & {
+  from: [number, number];
+  to: [number, number];
+  stars: [number, number][];
+  lines: [number, number][];
+};
+
+const ZODIACS: ZEntry[] = [
+  { sign: 'Capricorn', symbol: '♑', element: 'Earth', trait: 'you build walls only the patient ever climb', from: [12, 22], to: [1, 19],
+    stars: [[12, 58], [28, 42], [44, 52], [62, 40], [82, 54], [70, 72], [40, 70]],
+    lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 2]] },
+  { sign: 'Aquarius', symbol: '♒', element: 'Air', trait: 'you love from a thoughtful distance', from: [1, 20], to: [2, 18],
+    stars: [[10, 48], [24, 40], [38, 48], [52, 40], [66, 48], [80, 40], [46, 62], [60, 70]],
+    lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [3, 6], [6, 7]] },
+  { sign: 'Pisces', symbol: '♓', element: 'Water', trait: 'you feel everything, including what he never says', from: [2, 19], to: [3, 20],
+    stars: [[12, 70], [24, 58], [36, 48], [50, 44], [64, 48], [78, 58], [88, 70]],
+    lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]] },
+  { sign: 'Aries', symbol: '♈', element: 'Fire', trait: 'you chase — and get bored when caught', from: [3, 21], to: [4, 19],
+    stars: [[30, 68], [42, 52], [56, 40], [70, 46]],
+    lines: [[0, 1], [1, 2], [2, 3]] },
+  { sign: 'Taurus', symbol: '♉', element: 'Earth', trait: 'you love slowly, and leave even slower', from: [4, 20], to: [5, 20],
+    stars: [[14, 40], [30, 46], [44, 42], [56, 34], [60, 54], [72, 60], [50, 66]],
+    lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [4, 6]] },
+  { sign: 'Gemini', symbol: '♊', element: 'Air', trait: 'your heart runs two stories at once', from: [5, 21], to: [6, 20],
+    stars: [[36, 30], [58, 30], [40, 48], [62, 48], [36, 68], [58, 68]],
+    lines: [[0, 2], [1, 3], [2, 3], [2, 4], [3, 5]] },
+  { sign: 'Cancer', symbol: '♋', element: 'Water', trait: 'you mother the men you should be dating', from: [6, 21], to: [7, 22],
+    stars: [[30, 62], [44, 50], [60, 40], [74, 28], [66, 58]],
+    lines: [[0, 1], [1, 2], [2, 3], [1, 4]] },
+  { sign: 'Leo', symbol: '♌', element: 'Fire', trait: 'you need admiration as much as affection', from: [7, 23], to: [8, 22],
+    stars: [[22, 56], [32, 42], [44, 32], [58, 30], [70, 38], [78, 52], [66, 64], [48, 62]],
+    lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 0]] },
+  { sign: 'Virgo', symbol: '♍', element: 'Earth', trait: 'you audit men like spreadsheets — and miss the magic', from: [8, 23], to: [9, 22],
+    stars: [[18, 50], [32, 42], [46, 48], [60, 40], [74, 46], [60, 60], [46, 68]],
+    lines: [[0, 1], [1, 2], [2, 3], [3, 4], [3, 5], [5, 6], [6, 2]] },
+  { sign: 'Libra', symbol: '♎', element: 'Air', trait: 'you lose yourself keeping the peace', from: [9, 23], to: [10, 22],
+    stars: [[50, 28], [34, 48], [66, 48], [50, 66]],
+    lines: [[0, 1], [0, 2], [1, 2], [1, 3], [2, 3]] },
+  { sign: 'Scorpio', symbol: '♏', element: 'Water', trait: 'you test men until they fail — or run', from: [10, 23], to: [11, 21],
+    stars: [[14, 40], [26, 34], [38, 40], [50, 50], [60, 62], [72, 70], [84, 66], [86, 54]],
+    lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7]] },
+  { sign: 'Sagittarius', symbol: '♐', element: 'Fire', trait: 'you want roots and wings at the same time', from: [11, 22], to: [12, 21],
+    stars: [[28, 70], [40, 56], [52, 46], [64, 56], [76, 70], [52, 32], [40, 34], [64, 34]],
+    lines: [[0, 1], [1, 2], [2, 3], [3, 4], [2, 5], [5, 6], [5, 7]] },
 ];
 
 export function getZodiac(dob: string): Zodiac | null {
@@ -308,13 +340,11 @@ export function getZodiac(dob: string): Zodiac | null {
   if (isNaN(d.getTime())) return null;
   const m = d.getMonth() + 1;
   const day = d.getDate();
-  for (const z of ZODIACS) {
-    const [fm, fd] = z.from;
-    const [tm, td] = z.to;
-    if (fm === tm) {
-      if (m === fm && day >= fd && day <= td) return z;
-    } else {
-      if ((m === fm && day >= fd) || (m === tm && day <= td)) return z;
+  for (const { from, to, ...rest } of ZODIACS) {
+    if (from[0] === to[0]) {
+      if (m === from[0] && day >= from[1] && day <= to[1]) return rest;
+    } else if ((m === from[0] && day >= from[1]) || (m === to[0] && day <= to[1])) {
+      return rest;
     }
   }
   return null;
