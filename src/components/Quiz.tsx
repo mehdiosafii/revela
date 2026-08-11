@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { QUESTIONS, ENCOURAGEMENTS, getZodiac, type Answers, type Question } from '../lib/engine';
+import { ping, trackAnswer } from '../lib/tracker';
 import SocialProof from './SocialProof';
 import ZodiacBadge from './ZodiacBadge';
 
@@ -47,7 +48,15 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
   }, [step]);
 
   const commit = (val: string, advance = true) => {
-    setAnswers({ ...answers, [q.id]: val });
+    const nextAnswers = { ...answers, [q.id]: val };
+    setAnswers(nextAnswers);
+    if (val) trackAnswer(q.id, val);
+    ping({
+      stage: 'quiz',
+      questionIndex: advance ? step + 1 : step,
+      questionId: q.id,
+      identity: { name: nextAnswers.name, email: nextAnswers.email, phone: nextAnswers.phone },
+    });
     if (!advance) return;
     if (step === total - 1) {
       onDone();
