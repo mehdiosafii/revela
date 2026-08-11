@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Landing from '../components/Landing';
 import Quiz from '../components/Quiz';
 import Analyzing from '../components/Analyzing';
-import Report from '../components/Report';
+import Report, { type DeepReport } from '../components/Report';
 import { ping, loadProgress, clearProgress } from '../lib/tracker';
-import { QUESTIONS, type Answers } from '../lib/engine';
+import { QUESTIONS, getAge, getZodiac, type Answers } from '../lib/engine';
+import { trpc } from '@/providers/trpc';
 
 type Stage = 'landing' | 'quiz' | 'analyzing' | 'report';
 
@@ -20,7 +21,42 @@ export default function Home() {
   const [answers, setAnswers] = useState<Answers>({});
   const [initialStep, setInitialStep] = useState(0);
   const [resumeAvailable, setResumeAvailable] = useState(false);
+  const [deepReport, setDeepReport] = useState<DeepReport | null>(null);
   const hbRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const generateReport = trpc.report.generate.useMutation();
+
+  // fire Claude generation as soon as the quiz is done; report page waits for it
+  const beginAnalysis = (finalAnswers: Answers) => {
+    const z = getZodiac(finalAnswers.dob);
+    generateReport.mutate(
+      {
+        name: finalAnswers.name ?? '',
+        email: finalAnswers.email,
+        age: getAge(finalAnswers.dob) ?? undefined,
+        zodiac: z?.sign,
+        single_duration: finalAnswers.single_duration,
+        home_climate: finalAnswers.home_climate,
+        father_figure: finalAnswers.father_figure,
+        mother_love: finalAnswers.mother_love,
+        child_comfort: finalAnswers.child_comfort,
+        breakup_pattern: finalAnswers.breakup_pattern,
+        exes_pattern: finalAnswers.exes_pattern,
+        last_lesson: finalAnswers.last_lesson,
+        he_pulls_away: finalAnswers.he_pulls_away,
+        conflict_style: finalAnswers.conflict_style,
+        falling_style: finalAnswers.falling_style,
+        marriage_timeline: finalAnswers.marriage_timeline,
+        children_dream: finalAnswers.children_dream,
+        own_words: finalAnswers.own_words,
+      },
+      {
+        onSuccess: (res) => {
+          if (res.ok && res.report) setDeepReport(res.report as DeepReport);
+        },
+      },
+    );
+  };
 
   // restore saved progress on first load
   useEffect(() => {
@@ -90,6 +126,7 @@ export default function Home() {
         initialStep={initialStep}
         onDone={() => {
           clearProgress();
+          beginAnalysis(answers);
           go('analyzing');
         }}
         onHome={() => go('landing')}
@@ -97,10 +134,18 @@ export default function Home() {
     );
   }
   if (stage === 'analyzing') {
-    return <Analyzing name={answers.name ?? ''} onDone={() => go('report')} />;
+    // wait for Claude if it's still writing; the built-in report is instant fallback
+    const stillWriting = generateReport.isPending && !generateReport.isError;
+    return (
+      <Analyzing
+        name={answers.name ?? ''}
+        generating={stillWriting}
+        onDone={() => go('report')}
+      />
+    );
   }
   if (stage === 'report') {
-    return <Report answers={answers} />;
+    return <Report answers={answers} deep={deepReport} />;
   }
   return landing;
 }
