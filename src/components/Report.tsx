@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { buildReport, type Answers, type Report as BuiltInReport } from '../lib/engine';
-import { STRIPE_PAYMENT_LINK } from '../lib/config';
+import { STRIPE_PAYMENT_LINK, UNLOCK_PRICE, UNLOCK_PRICE_ANCHOR } from '../lib/config';
+import { REVIEWS } from '../lib/engine';
 import { trpc } from '@/providers/trpc';
 import { getToken } from '../lib/tracker';
 
@@ -89,27 +90,35 @@ function em(text: string): React.ReactNode {
   );
 }
 
-/* ── REAL 48h finisher deadline — anchored server-side when she finished ── */
-function useDeadline() {
+/* ── REAL 12h finisher deadline — anchored server-side when she finished ── */
+function useDeadline(): { label: string | null; expired: boolean } {
   const q = trpc.public.deadline.useQuery({ token: getToken() }, { refetchInterval: 60000, retry: false });
-  const [left, setLeft] = useState('');
+  const [label, setLabel] = useState('');
+  const [expired, setExpired] = useState(false);
   const dl = q.data?.deadline ?? null;
 
   useEffect(() => {
     if (!dl) return;
     const tick = () => {
-      const ms = Math.max(0, dl - Date.now());
+      const ms = dl - Date.now();
+      if (ms <= 0) {
+        setLabel('00h 00m 00s');
+        setExpired(true);
+        return;
+      }
       const h = Math.floor(ms / 3600000);
       const m = Math.floor((ms % 3600000) / 60000);
       const s = Math.floor((ms % 60000) / 1000);
-      setLeft(ms === 0 ? 'expired' : `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
+      setLabel(
+        `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`,
+      );
     };
     tick();
     const iv = setInterval(tick, 1000);
     return () => clearInterval(iv);
   }, [dl]);
 
-  return dl ? left : null; // null = not finished / still loading
+  return { label: dl ? label : null, expired };
 }
 
 function useReveal() {
@@ -118,12 +127,12 @@ function useReveal() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      ([e]) => e.isIntersecting && (setSeen(true), obs.disconnect()),
+    const io = new IntersectionObserver(
+      ([e]) => e.isIntersecting && (setSeen(true), io.disconnect()),
       { threshold: 0.12 },
     );
-    obs.observe(el);
-    return () => obs.disconnect();
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
   return { ref, seen };
 }
@@ -145,26 +154,54 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
   );
 }
 
-function SectionTitle({ kicker, children }: { kicker: string; children: React.ReactNode }) {
+function Stars({ size = 'text-sm' }: { size?: string }) {
   return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">{kicker}</p>
-      <h2 className="font-display mt-4 text-3xl font-medium leading-tight text-[#3d0b26] md:text-4xl">{children}</h2>
+    <span className={`inline-flex gap-0.5 text-[#edc840] ${size}`}>
+      {'★★★★★'.split('').map((s, i) => <span key={i}>{s}</span>)}
+    </span>
+  );
+}
+
+/* the unlock button — used in the overlay, sticky bar, and bottom close */
+function UnlockButton({ sub }: { sub?: string }) {
+  return (
+    <div className="text-center">
+      <a
+        href={STRIPE_PAYMENT_LINK}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="btn-shine group inline-flex items-center justify-center gap-2.5 whitespace-nowrap rounded-full px-8 py-4 text-[15px] font-semibold text-white md:text-base"
+      >
+        <span className="flex h-5 w-5 items-center justify-center">🔓</span>
+        <span>Unlock My Full Report — {UNLOCK_PRICE}</span>
+        <span className="transition-transform duration-300 group-hover:translate-x-1.5">→</span>
+      </a>
+      {sub && <p className="mt-3.5 text-[12px] text-[#751545]/55">{sub}</p>}
     </div>
   );
 }
 
-
-
 export default function Report({ answers, deep }: { answers: Answers; deep?: DeepReport | null }) {
   const r = buildReport(answers);
   const v = toView(r, deep ?? null);
-  const deadline = useDeadline();
+  const { label: deadline, expired } = useDeadline();
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
+  // one luring sentence, personalized from her answers
+  const lure =
+    r.style === 'anxious'
+      ? `${r.name}, your report is ready — and it reveals the exact moment your love starts pushing him away.`
+      : r.style === 'avoidant'
+        ? `${r.name}, your report is ready — and it reveals why the good ones always start to feel boring.`
+        : r.style === 'fearful'
+          ? `${r.name}, your report is ready — and it reveals the push-pull that keeps love just out of reach.`
+          : `${r.name}, your report is ready — and it reveals the quiet pattern that has been choosing your men for you.`;
+
+  const unlockSub = `Secure checkout via Stripe · one-time payment · read your full report instantly`;
+
   return (
-    <div className="bg-grain min-h-screen">
-      {/* ── Report header ── */}
+    <div className="bg-grain min-h-screen pb-24">
+      {/* ── header ── */}
       <header className="border-b border-[#751545]/10 bg-[#fbf5ef]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
           <div className="flex items-baseline gap-1">
@@ -175,323 +212,205 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
         </div>
       </header>
 
-      {/* ── Cover ── */}
-      <section className="px-6 pb-24 pt-20 text-center">
+      {/* ── teaser: one luring sentence ── */}
+      <section className="px-6 pb-14 pt-20 text-center">
         <Reveal>
           <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">
-            Prepared exclusively for
+            Your 21 answers have been read
           </p>
-          <h1 className="font-display mt-5 text-4xl font-medium tracking-tight text-[#3d0b26] md:text-6xl">
-            {r.name}
-            {r.zodiac && <span className="ml-3 text-3xl text-[#c9a24b] md:text-4xl">{r.zodiac.symbol}</span>}
+          <h1 className="font-display mx-auto mt-6 max-w-3xl text-3xl font-medium leading-[1.2] tracking-tight text-[#3d0b26] md:text-[2.7rem]">
+            {lure.split(' — ')[0]} —{' '}
+            <em className="font-light text-[#751545]">{lure.split(' — ')[1]}</em>
           </h1>
-          <p className="mt-3 text-[13px] uppercase tracking-[0.2em] text-[#751545]/55">
-            {r.age ? `${r.age} years old` : ''} {r.age && r.zodiac ? '·' : ''}{' '}
-            {r.zodiac ? `${r.zodiac.sign} · ${r.zodiac.element} sign` : ''}
-          </p>
         </Reveal>
-        <Reveal delay={200} className="mt-12">
-          <div className="gold-ring mx-auto max-w-2xl rounded-[2rem] bg-white/80 p-10 backdrop-blur-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Your archetype</p>
-            <h2 className="font-display mt-4 text-3xl font-medium text-[#751545] md:text-5xl">{v.archetypeName}</h2>
-            {v.archetypeLine && (
-              <p className="mt-3 text-[14px] italic text-[#4a1230]/60">{v.archetypeLine}</p>
-            )}
-            <p className="font-display mt-6 text-xl font-light italic leading-relaxed text-[#3d0b26] md:text-2xl">
-              “{v.headline}”
-            </p>
+        <Reveal delay={200}>
+          <div className="mx-auto mt-9 inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-full border border-[#c9a24b]/35 bg-white/70 px-7 py-3 text-[12.5px] text-[#4a1230]/70">
+            <span>{r.name}{r.age ? ` · ${r.age}` : ''}{r.zodiac ? ` · ${r.zodiac.symbol} ${r.zodiac.sign}` : ''}</span>
+            <span className="hidden h-3 w-px bg-[#751545]/20 sm:block" />
+            <span>Archetype: <b className="text-[#751545]">{v.archetypeName}</b></span>
+            <span className="hidden h-3 w-px bg-[#751545]/20 sm:block" />
+            <span className="text-[#c9a24b]">6 readings · written for you</span>
           </div>
         </Reveal>
       </section>
 
-      {/* ── Opening letter (deep) or pattern reading (built-in) ── */}
-      <section className="border-y border-[#751545]/10 bg-white/60 px-6 py-24">
-        <div className="mx-auto max-w-3xl">
-          {v.openingLetter ? (
-            <>
-              <Reveal>
-                <SectionTitle kicker="Reading I — a letter to you">Read this first, slowly</SectionTitle>
-              </Reveal>
-              <div className="mt-8 flex flex-col gap-5">
-                {v.openingLetter.map((para, i) => (
-                  <Reveal key={i} delay={i * 100}>
-                    <p className="font-display text-[17px] font-light leading-[1.85] text-[#3d0b26]">{em(para)}</p>
-                  </Reveal>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <Reveal>
-                <SectionTitle kicker="Reading I — what your answers revealed">The pattern you didn’t know you were running</SectionTitle>
-              </Reveal>
-              <Reveal delay={140}>
-                <p className="mt-8 text-[16px] leading-relaxed text-[#4a1230]/80">{v.subheadline}</p>
-              </Reveal>
-              <div className="mt-10 flex flex-col gap-5">
-                {v.pattern.map((p, i) => (
-                  <Reveal key={i} delay={i * 120}>
-                    <div className="flex gap-4 rounded-2xl border border-[#751545]/12 bg-[#fbf5ef] p-6">
-                      <span className="font-display shrink-0 text-2xl text-[#c9a24b]">✦</span>
-                      <p className="text-[15px] leading-relaxed text-[#4a1230]/85">{em(p)}</p>
-                    </div>
-                  </Reveal>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </section>
-
-      {/* ── Core pattern (deep only) ── */}
-      {v.corePattern && (
-        <section className="px-6 py-24">
-          <div className="mx-auto max-w-3xl">
-            <Reveal>
-              <SectionTitle kicker="Reading II — the loop">The pattern, step by step</SectionTitle>
-            </Reveal>
-            <div className="mt-8 flex flex-col gap-5">
-              {v.corePattern.map((para, i) => (
-                <Reveal key={i} delay={i * 100}>
-                  <p className="text-[16px] leading-[1.8] text-[#4a1230]/85">{em(para)}</p>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── Root: father wound (built-in) or root cause (deep) ── */}
-      <section className="px-6 py-24">
-        <div className="mx-auto max-w-3xl">
-          <Reveal>
-            <SectionTitle kicker={v.rootCause ? 'Reading III — the root' : 'Reading II — the root'}>
-              Where it started: the first man in your life
-            </SectionTitle>
-          </Reveal>
-          {v.rootCause ? (
-            <div className="mt-8 flex flex-col gap-5">
-              {v.rootCause.map((para, i) => (
-                <Reveal key={i} delay={i * 100}>
-                  <p className="font-display text-[16.5px] font-light leading-[1.85] text-[#3d0b26]">{em(para)}</p>
-                </Reveal>
-              ))}
-            </div>
-          ) : (
-            <Reveal delay={140}>
-              <p className="font-display mt-8 border-l-2 border-[#c9a24b] pl-6 text-xl font-light italic leading-relaxed text-[#3d0b26] md:text-[1.4rem]">
-                {v.fatherWound}
+      {/* ── the locked report: blurred behind the paywall ── */}
+      <section className="relative px-4 md:px-6">
+        <div className="relative mx-auto max-w-3xl">
+          <div
+            aria-hidden
+            className="select-none overflow-hidden rounded-[2rem] border border-[#751545]/10 bg-white/70 px-7 py-12 md:px-14"
+            style={{ filter: 'blur(4px)', pointerEvents: 'none', height: 780 }}
+          >
+            {/* cover */}
+            <div className="text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Prepared exclusively for</p>
+              <h2 className="font-display mt-4 text-4xl font-medium text-[#3d0b26] md:text-5xl">
+                {r.name} {r.zodiac && <span className="text-3xl text-[#c9a24b]">{r.zodiac.symbol}</span>}
+              </h2>
+              <p className="mt-3 text-[13px] uppercase tracking-[0.2em] text-[#751545]/55">
+                {r.age ? `${r.age} years old` : ''}{r.age && r.zodiac ? ' · ' : ''}{r.zodiac ? `${r.zodiac.sign} · ${r.zodiac.element} sign` : ''}
               </p>
-            </Reveal>
-          )}
-
-          {/* hidden truth (deep) */}
-          {v.hiddenTruth && (
-            <Reveal delay={200} className="mt-12">
-              <div className="gold-ring rounded-3xl bg-[#3d0b26] p-8">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">Between your lines</p>
-                {v.hiddenTruth.map((para, i) => (
-                  <p key={i} className="font-display mt-4 text-lg font-light italic leading-relaxed text-[#fbf5ef]/90">
-                    {em(para)}
-                  </p>
+            </div>
+            <div className="gold-ring mx-auto mt-10 max-w-xl rounded-[2rem] bg-white/80 p-9">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Your archetype</p>
+              <h3 className="font-display mt-3 text-3xl font-medium text-[#751545]">{v.archetypeName}</h3>
+              {v.archetypeLine && <p className="mt-2 text-[14px] italic text-[#4a1230]/60">{v.archetypeLine}</p>}
+              <p className="font-display mt-5 text-xl font-light italic leading-relaxed text-[#3d0b26]">“{v.headline}”</p>
+            </div>
+            {/* reading I — the hook, then it fades */}
+            <div className="mt-12">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">
+                {v.openingLetter ? 'Reading I — a letter to you' : 'Reading I — what your answers revealed'}
+              </p>
+              <h4 className="font-display mt-3 text-2xl font-medium text-[#3d0b26]">
+                {v.openingLetter ? 'Read this first, slowly' : 'The pattern you didn’t know you were running'}
+              </h4>
+              <div className="mt-5 flex flex-col gap-4">
+                {(v.openingLetter ?? [v.subheadline]).slice(0, 2).map((para, i) => (
+                  <p key={i} className="text-[15.5px] leading-[1.8] text-[#4a1230]/85">{em(para)}</p>
                 ))}
               </div>
-            </Reveal>
-          )}
+            </div>
+          </div>
 
-          {/* her own words */}
-          {v.herWords && (
-            <Reveal delay={220} className="mt-12">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">In your own words</p>
-              <div className="mt-4 rounded-2xl bg-[#3d0b26] p-8">
-                <p className="font-display text-lg font-light italic leading-relaxed text-[#fbf5ef]/90">
-                  “{v.herWords}”
+          {/* fade + unlock overlay */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-full rounded-[2rem]" style={{ background: 'linear-gradient(to bottom, rgba(251,245,239,0.0) 0%, rgba(251,245,239,0.0) 26%, rgba(251,245,239,0.55) 44%, rgba(251,245,239,0.96) 58%, #fbf5ef 68%)' }} />
+          <div className="absolute inset-x-0 bottom-8 flex justify-center px-6">
+            <Reveal className="w-full max-w-md">
+              <div className="rounded-[1.8rem] border border-[#c9a24b]/45 bg-white/95 p-8 text-center shadow-[0_30px_80px_-20px_rgba(61,11,38,0.35)] backdrop-blur-md">
+                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#751545] to-[#c4688a] text-2xl text-white shadow-lg">🔒</span>
+                <h3 className="font-display mt-5 text-2xl font-medium text-[#3d0b26]">Your full report is locked</h3>
+                <p className="mt-3 text-[14px] leading-relaxed text-[#4a1230]/75">
+                  Six readings, written only for you — the loop, the root, the revelation, the man you actually need, and your 90-day path. Unlock it once. Keep it forever.
                 </p>
-                {v.herWordsReflected ? (
-                  v.herWordsReflected.map((para, i) => (
-                    <p key={i} className="mt-4 text-[14px] leading-relaxed text-[#fbf5ef]/70">{em(para)}</p>
-                  ))
-                ) : (
-                  <p className="mt-4 text-[13px] leading-relaxed text-[#fbf5ef]/60">
-                    — You wrote this. Now read it as if your best friend had written it. Notice the
-                    self-blame woven through it? That’s the pattern speaking, not the truth.
-                  </p>
+                {deadline && !expired && (
+                  <div className="mt-5 rounded-xl bg-[#3d0b26] px-4 py-3">
+                    <p className="text-[10.5px] font-semibold uppercase tracking-[0.2em] text-[#fbf5ef]/60">
+                      Your unlock price expires in
+                    </p>
+                    <p className="font-display mt-1 text-2xl font-semibold tabular-nums text-[#edc840]">{deadline}</p>
+                  </div>
                 )}
+                <div className="mt-6">
+                  <p className="mb-4 text-[13px] text-[#4a1230]/60">
+                    <span className="mr-2 tabular-nums line-through">{UNLOCK_PRICE_ANCHOR}</span>
+                    <span className="font-display text-2xl font-semibold text-[#751545]">{UNLOCK_PRICE}</span>
+                    <span className="ml-2 rounded-full bg-[#c9a24b]/20 px-2.5 py-0.5 text-[11px] font-semibold text-[#751545]">finisher price</span>
+                  </p>
+                  <UnlockButton sub={unlockSub} />
+                </div>
               </div>
             </Reveal>
-          )}
-        </div>
-      </section>
-
-      {/* ── The real reason ── */}
-      <section className="border-y border-[#751545]/10 bg-gradient-to-b from-[#751545] to-[#3d0b26] px-6 py-28 text-[#fbf5ef]">
-        <div className="mx-auto max-w-3xl">
-          <Reveal>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">
-              {v.corePattern ? 'Reading IV — the revelation' : 'Reading III — the revelation'}
-            </p>
-            <h2 className="font-display mt-4 text-3xl font-medium leading-tight md:text-4xl">
-              Why you’re still single.
-              <em className="font-light text-[#e9babb]"> The part no one tells you.</em>
-            </h2>
-          </Reveal>
-          <Reveal delay={160}>
-            <p className="mt-10 text-[17px] font-light leading-[1.85] text-[#fbf5ef]/90">{v.realReason}</p>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ── The man she needs ── */}
-      <section className="px-6 py-24">
-        <div className="mx-auto max-w-3xl">
-          <Reveal>
-            <SectionTitle kicker={v.corePattern ? 'Reading V — who to choose' : 'Reading IV — who to choose'}>
-              The man you actually need — not the one you keep choosing
-            </SectionTitle>
-          </Reveal>
-          <div className="mt-10 grid gap-4 md:grid-cols-2">
-            {v.manSheNeeds.map((m, i) => (
-              <Reveal key={i} delay={i * 100}>
-                <div className="flex h-full items-start gap-3 rounded-2xl border border-[#751545]/12 bg-white/80 p-5">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#751545] to-[#c4688a] text-[11px] font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <p className="text-[14.5px] leading-relaxed text-[#4a1230]/85">{em(m)}</p>
-                </div>
-              </Reveal>
-            ))}
           </div>
         </div>
       </section>
 
-      {/* ── 90-day path ── */}
-      <section className="border-y border-[#751545]/10 bg-white/60 px-6 py-24">
-        <div className="mx-auto max-w-3xl">
-          <Reveal>
-            <SectionTitle kicker={v.corePattern ? 'Reading VI — the way forward' : 'Reading V — the way forward'}>
-              Your 90-day path: from pattern to proposal
-            </SectionTitle>
-          </Reveal>
-          <div className="mt-12 flex flex-col gap-0">
-            {v.path.map((s, i) => (
-              <Reveal key={i} delay={i * 130}>
-                <div className="relative flex gap-6 pb-10">
-                  <div className="flex flex-col items-center">
-                    <div className="gold-ring flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c9a24b] to-[#edc840] font-display text-lg font-semibold text-[#3d0b26]">
-                      {i + 1}
-                    </div>
-                    {i < v.path.length - 1 && <div className="mt-2 w-px flex-1 bg-gradient-to-b from-[#c9a24b]/60 to-transparent" />}
-                  </div>
-                  <div className="pt-2">
-                    <h3 className="font-display text-xl font-medium text-[#3d0b26]">{s.title}</h3>
-                    <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-[#4a1230]/75">{em(s.text)}</p>
-                  </div>
+      {/* ── conversion zone below the paywall ── */}
+      <section className="mx-auto max-w-3xl px-6 pt-32">
+        <Reveal className="text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Inside your report</p>
+          <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-4xl">
+            Here’s exactly what you’ll
+            <em className="font-light text-[#751545]"> read in the next five minutes.</em>
+          </h2>
+        </Reveal>
+        <div className="mt-12 flex flex-col gap-3">
+          {[
+            ['I', 'The letter', 'Your answers reflected back until the thread between your childhood and your love life becomes impossible to unsee.'],
+            ['II', 'The loop', 'The exact sequence you run from first date to ending — what you do, what he experiences, how it closes.'],
+            ['III', 'The root', 'Where it started: your father, your home, and the little girl’s logic still choosing your men today.'],
+            ['IV', 'The revelation', 'Why you’re still single — the part no one has ever said to you plainly.'],
+            ['V', 'Who to choose', 'The four traits of the man who would actually work for you — not the one you keep choosing.'],
+            ['VI', 'The 90-day path', 'Three named phases from pattern to proposal, built around your timeline and your dream of a family.'],
+          ].map(([num, title, desc], i) => (
+            <Reveal key={i} delay={i * 70}>
+              <div className="flex items-start gap-5 rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-5">
+                <span className="font-display shrink-0 text-xl font-medium text-[#c9a24b]">{num}</span>
+                <div>
+                  <p className="font-display text-[17px] font-medium text-[#3d0b26]">{title}</p>
+                  <p className="mt-1 text-[14px] leading-relaxed text-[#4a1230]/70">{desc}</p>
                 </div>
-              </Reveal>
-            ))}
-          </div>
+              </div>
+            </Reveal>
+          ))}
         </div>
       </section>
 
-      {/* ── Closing line (deep) ── */}
-      {v.closingLine && (
-        <section className="px-6 pb-24 text-center">
+      {/* ── her own words, echoed ── */}
+      {v.herWords && (
+        <section className="mx-auto max-w-2xl px-6 pt-24">
           <Reveal>
-            <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-[#c9a24b] to-transparent" />
-            <p className="font-display mx-auto mt-8 max-w-xl text-2xl font-light italic leading-relaxed text-[#3d0b26] md:text-[1.6rem]">
-              {v.closingLine}
-            </p>
-            <div className="mx-auto mt-8 h-px w-16 bg-gradient-to-r from-transparent via-[#c9a24b] to-transparent" />
+            <p className="text-center text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">You told us</p>
+            <div className="mt-5 rounded-3xl bg-[#3d0b26] p-9 text-center">
+              <p className="font-display text-xl font-light italic leading-relaxed text-[#fbf5ef]/90">“{v.herWords}”</p>
+              <p className="mt-5 text-[13.5px] leading-relaxed text-[#fbf5ef]/60">
+                That’s what you believe. Your report shows you what’s actually true — and it’s kinder, and more fixable, than the story you’ve been carrying.
+              </p>
+            </div>
           </Reveal>
         </section>
       )}
 
-      {/* ── The close ── */}
-      <section className="bg-gradient-to-b from-[#fbf5ef] to-[#f3e8df] px-6 py-28">
-        <div className="mx-auto max-w-3xl">
-          <Reveal className="text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">One question remains, {r.name}</p>
-            <h2 className="font-display mx-auto mt-5 max-w-2xl text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
-              You’ve seen the pattern.
-              <em className="font-light text-[#751545]"> Seeing it is step one. Changing it is the work.</em>
-            </h2>
-            <p className="mx-auto mt-7 max-w-xl text-[15.5px] leading-relaxed text-[#4a1230]/75">
-              This free report showed you the diagnosis. The <b>Revela Blueprint</b> is the treatment —
-              and it’s only offered to women who finish the assessment. You finished.
-            </p>
-          </Reveal>
-
-          {/* real 48h finisher deadline */}
-          {deadline && (
-            <Reveal delay={120} className="mt-10">
-              <div className="rounded-2xl border border-[#c9a24b]/40 bg-[#3d0b26] px-6 py-4 text-center">
-                <p className="text-[12px] font-medium uppercase tracking-[0.2em] text-[#fbf5ef]/70">
-                  Your finisher price expires in{' '}
-                  <span className="font-display text-lg font-semibold tabular-nums text-[#edc840]">{deadline}</span>
+      {/* ── member stories ── */}
+      <section className="overflow-hidden pt-28">
+        <Reveal className="px-6 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Member stories</p>
+          <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-4xl">
+            What women say after
+            <em className="font-light text-[#751545]"> seeing their pattern.</em>
+          </h2>
+        </Reveal>
+        <div className="relative mt-12">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#fbf5ef] to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#fbf5ef] to-transparent" />
+          <div className="animate-marquee flex w-max gap-6 pr-6">
+            {[...REVIEWS, ...REVIEWS].map((rev, i) => (
+              <div key={i} className="w-[340px] shrink-0 rounded-3xl border border-[#751545]/10 bg-white/85 p-6 shadow-sm">
+                <Stars size="text-xs" />
+                <p className="mt-3 text-[14px] leading-relaxed text-[#4a1230]/85">“{rev.text}”</p>
+                <p className="mt-4 text-[12px] font-semibold text-[#3d0b26]">
+                  {rev.name} <span className="font-normal text-[#751545]/50">· {rev.place}</span>
                 </p>
               </div>
-            </Reveal>
-          )}
+            ))}
+          </div>
+        </div>
+        <p className="mt-8 px-6 text-center text-[11px] text-[#4a1230]/40">
+          Stories reflect individual experiences; results vary and are not guaranteed.
+        </p>
+      </section>
 
-          {/* what's inside the Blueprint — with value anchors */}
-          <Reveal delay={160}>
-            <div className="mt-8 flex flex-col gap-3">
-              {[
-                { item: 'The Full 40-Page Blueprint — your complete reading, expanded to every chapter of your life', value: 297 },
-                { item: 'The Exact Scripts — what to text when he pulls away, how to raise marriage in month two', value: 147 },
-                { item: `The ${r.style === 'anxious' ? 'Consistency Test' : r.style === 'avoidant' ? 'Warmth Audit' : 'Calm Standard'} — a checklist for spotting commitment-minded men early`, value: 97 },
-                { item: 'Bonus: Private 45-minute Pattern-Break session with a Revela coach', value: 250 },
-                { item: 'Bonus: “From Yes to Ring” — the commitment-window playbook', value: 97 },
-              ].map((v, i) => (
-                <div key={i} className="flex items-center justify-between gap-4 rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-4">
-                  <div className="flex items-center gap-4">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c9a24b] to-[#edc840] text-[12px] font-bold text-[#3d0b26]">✓</span>
-                    <p className="text-[14.5px] leading-snug text-[#3d0b26]">{v.item}</p>
-                  </div>
-                  <p className="shrink-0 text-[13.5px] tabular-nums text-[#751545]/45 line-through">${v.value}</p>
-                </div>
-              ))}
-              <div className="mt-2 flex items-center justify-between rounded-2xl bg-[#3d0b26] px-6 py-5">
-                <div>
-                  <p className="font-display text-lg font-medium text-[#fbf5ef]">Total value $888</p>
-                  <p className="text-[12px] text-[#fbf5ef]/55">
-                    Finisher price — one-time payment · instant access
-                  </p>
-                </div>
-                <p className="font-display text-4xl font-medium text-[#edc840]">
-                  <span className="mr-2 align-middle text-lg text-[#fbf5ef]/40 line-through">$297</span>$97
-                </p>
-              </div>
-            </div>
-          </Reveal>
-
-          {/* guarantee */}
-          <Reveal delay={200}>
-            <div className="gold-ring mt-8 flex items-start gap-5 rounded-2xl bg-white/85 p-6 text-left">
+      {/* ── guarantee + final close ── */}
+      <section className="bg-gradient-to-b from-[#fbf5ef] to-[#f3e8df] px-6 py-24">
+        <div className="mx-auto max-w-2xl">
+          <Reveal>
+            <div className="gold-ring flex items-start gap-5 rounded-2xl bg-white/85 p-6">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c9a24b] to-[#edc840] text-xl text-[#3d0b26]">✓</span>
               <div>
                 <p className="font-display text-lg font-medium text-[#3d0b26]">30-day money-back guarantee</p>
                 <p className="mt-1.5 text-[14px] leading-relaxed text-[#4a1230]/75">
-                  If the Blueprint isn’t right for you, email us within 30 days of purchase for a full
-                  refund — no questions asked, no forms to fill. See our refund policy for details.
+                  Read your full report. If it doesn’t feel like it was written for you — and only you — email us within 30 days for a full refund. No questions, no forms.
                 </p>
               </div>
             </div>
           </Reveal>
-
-          <Reveal delay={240} className="mt-10 text-center">
-            <a
-              href={STRIPE_PAYMENT_LINK}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-shine group inline-flex items-center gap-3 rounded-full px-10 py-5 text-base font-semibold text-white md:text-lg"
-            >
-              <span>Unlock My Full Blueprint — $97</span>
-              <span className="transition-transform duration-300 group-hover:translate-x-1.5">→</span>
-            </a>
-            <p className="mt-4 text-[12.5px] text-[#751545]/55">
-              Secure checkout via Stripe · 30-day money-back guarantee · A copy of this free report was sent to {answers.email || 'your inbox'}
-            </p>
+          <Reveal delay={140} className="mt-12 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">One question remains, {r.name}</p>
+            <h2 className="font-display mx-auto mt-4 max-w-xl text-3xl font-medium leading-tight text-[#3d0b26] md:text-4xl">
+              You did the hard part.
+              <em className="font-light text-[#751545]"> Now read what it means.</em>
+            </h2>
+            {deadline && !expired && (
+              <p className="mt-5 text-[13px] text-[#751545]/70">
+                Your {UNLOCK_PRICE} finisher price expires in{' '}
+                <span className="font-display font-semibold tabular-nums text-[#3d0b26]">{deadline}</span>
+                {' '}— then it returns to {UNLOCK_PRICE_ANCHOR}.
+              </p>
+            )}
+            <div className="mt-8">
+              <UnlockButton sub={`${unlockSub} · a copy is also sent to ${answers.email || 'your inbox'}`} />
+            </div>
           </Reveal>
         </div>
       </section>
@@ -501,6 +420,32 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
           © 2026 Revela Institute · This report is educational self-reflection content, not medical or psychological advice.
         </p>
       </footer>
+
+      {/* ── sticky unlock bar ── */}
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#751545]/10 bg-[#fbf5ef]/92 px-4 py-3 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-semibold text-[#3d0b26]">
+              {r.name}’s report is ready
+            </p>
+            <p className="text-[11.5px] text-[#751545]/60">
+              {deadline && !expired ? (
+                <>expires in <span className="font-semibold tabular-nums text-[#751545]">{deadline}</span></>
+              ) : (
+                <>6 readings · written for you</>
+              )}
+            </p>
+          </div>
+          <a
+            href={STRIPE_PAYMENT_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-shine shrink-0 rounded-full px-6 py-2.5 text-sm font-semibold text-white"
+          >
+            <span>Unlock — {UNLOCK_PRICE}</span>
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

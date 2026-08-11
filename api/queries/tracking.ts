@@ -8,8 +8,8 @@ import { sessions, events, answers } from "@db/schema";
 // Real, enforced daily capacity — reports are reviewed by a human team,
 // so the cap is genuine, and this counter is read straight from the DB.
 const DAILY_REPORT_CAP = 300;
-// Finisher pricing is a real, server-stored 48-hour window per visitor.
-const FINISHER_WINDOW_MS = 48 * 3600 * 1000;
+// Finisher pricing is a real, server-stored 12-hour window per visitor.
+const FINISHER_WINDOW_MS = 12 * 3600 * 1000;
 
 // ── Admin password gate (server-enforced) ──────────────────
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "2026";
@@ -77,6 +77,7 @@ export const trackRouter = createRouter({
         questionIndex: input.questionIndex ?? -1,
         durationMs: input.durationMs ?? 0,
         lastSeenAt: now,
+        ...(input.stage === "report" ? { completed: true, finishedAt: now } : {}),
       });
     } else {
       const patch: Partial<typeof sessions.$inferInsert> = {
@@ -173,7 +174,7 @@ export const publicRouter = createRouter({
     return { cap: DAILY_REPORT_CAP, used, left: Math.max(0, DAILY_REPORT_CAP - used) };
   }),
 
-  // The visitor's real finisher deadline: finishedAt + 48h, stored server-side
+  // The visitor's real finisher deadline: finishedAt + 12h, stored server-side
   deadline: publicQuery
     .input(z.object({ token: z.string().min(8).max(64) }))
     .query(async ({ input }) => {
