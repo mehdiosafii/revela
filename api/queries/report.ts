@@ -97,45 +97,47 @@ RULES:
 }
 
 export const reportRouter = createRouter({
-  hasClaude: publicQuery.query(() => ({ enabled: !!process.env.CLAUDE_API_KEY })),
+  hasClaude: publicQuery.query(() => ({ enabled: !!process.env.MOONSHOT_API_KEY })),
 
   generate: publicQuery.input(answerSchema).mutation(async ({ input }) => {
-    const key = process.env.CLAUDE_API_KEY;
+    const key = process.env.MOONSHOT_API_KEY;
     if (!key) {
       return { ok: false as const, reason: "no_key" as const };
     }
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://api.moonshot.cn/v1/chat/completions", {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-api-key": key,
-          "anthropic-version": "2023-06-01",
+          authorization: `Bearer ${key}`,
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-5",
+          model: "moonshot-v1-32k",
+          temperature: 0.8,
           max_tokens: 4096,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: "user", content: buildUserPrompt(input) }],
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: buildUserPrompt(input) },
+          ],
         }),
         signal: AbortSignal.timeout(90000),
       });
       if (!res.ok) {
         const txt = await res.text();
-        console.error("Claude API error", res.status, txt.slice(0, 500));
+        console.error("Moonshot API error", res.status, txt.slice(0, 500));
         let detail = "";
         try {
           detail = (JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? "";
         } catch { /* ignore */ }
         return { ok: false as const, reason: "api_error" as const, httpStatus: res.status, detail: detail.slice(0, 200) };
       }
-      const data = (await res.json()) as { content: { type: string; text: string }[] };
-      const raw = data.content?.find((c) => c.type === "text")?.text ?? "";
+      const data = (await res.json()) as { choices: { message: { content: string } }[] };
+      const raw = data.choices?.[0]?.message?.content ?? "";
       const clean = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean) as ClaudeReport;
       return { ok: true as const, report: parsed };
     } catch (e) {
-      console.error("Claude generation failed", e);
+      console.error("Moonshot generation failed", e);
       return { ok: false as const, reason: "error" as const };
     }
   }),
