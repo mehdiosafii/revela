@@ -33,8 +33,8 @@ function deviceOf(ua: string | null) {
 }
 
 /* ── Detail drawer ── */
-function SessionDrawer({ token, onClose }: { token: string; onClose: () => void }) {
-  const detail = trpc.admin.sessionDetail.useQuery({ token }, { refetchInterval: 8000 });
+function SessionDrawer({ token, password, onClose }: { token: string; password: string; onClose: () => void }) {
+  const detail = trpc.admin.sessionDetail.useQuery({ token, password }, { refetchInterval: 8000, retry: false });
   const s = detail.data?.session;
 
   return (
@@ -115,11 +115,95 @@ function SessionDrawer({ token, onClose }: { token: string; onClose: () => void 
   );
 }
 
+/* ── Lock screen ── */
+function LockScreen({ onUnlock }: { onUnlock: (pw: string) => void }) {
+  const [pw, setPw] = useState('');
+  const [shake, setShake] = useState(false);
+  const check = trpc.admin.check.useQuery({ password: pw }, { enabled: false, retry: false });
+
+  const submit = async () => {
+    if (!pw) return;
+    const res = await check.refetch();
+    if (res.data?.ok) {
+      onUnlock(pw);
+    } else {
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#3d0b26] bg-grain px-6">
+      <div
+        className="gold-ring w-full max-w-sm rounded-[2rem] border border-[#c9a24b]/25 bg-white/95 p-10 text-center backdrop-blur"
+        style={shake ? { animation: 'toast-in 0.4s ease', transform: 'translateX(0)' } : undefined}
+      >
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#751545] to-[#c4688a] text-2xl text-white">
+          ⚿
+        </div>
+        <h1 className="font-display mt-5 text-2xl font-medium text-[#3d0b26]">Revela Admin</h1>
+        <p className="mt-1.5 text-[13px] text-[#751545]/55">This area is private. Enter the password.</p>
+        <input
+          type="password"
+          value={pw}
+          autoFocus
+          onChange={(e) => setPw(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder="Password"
+          className="mt-6 w-full rounded-xl border-[1.5px] border-[#751545]/20 bg-white px-4 py-3 text-center text-[15px] tracking-[0.3em] text-[#3d0b26] outline-none transition-colors placeholder:tracking-normal placeholder:text-[#751545]/30 focus:border-[#751545]"
+        />
+        {check.isError && (
+          <p className="mt-3 text-[12.5px] font-medium text-[#c43030]">Wrong password — try again.</p>
+        )}
+        <button
+          onClick={submit}
+          disabled={!pw || check.isFetching}
+          className="btn-shine mt-5 w-full rounded-full py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
+        >
+          <span>{check.isFetching ? 'Checking…' : 'Unlock dashboard'}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin page ── */
 export default function Admin() {
   const [selected, setSelected] = useState<string | null>(null);
-  const overview = trpc.admin.overview.useQuery(undefined, { refetchInterval: 8000 });
-  const visitors = trpc.admin.visitors.useQuery(undefined, { refetchInterval: 8000 });
+  const [password, setPassword] = useState<string>(() => sessionStorage.getItem('revela_admin_pw') ?? '');
+
+  const unlock = (pw: string) => {
+    sessionStorage.setItem('revela_admin_pw', pw);
+    setPassword(pw);
+  };
+
+  if (!password) return <LockScreen onUnlock={unlock} />;
+
+  return <AdminDashboard password={password} selected={selected} setSelected={setSelected} onLock={() => {
+    sessionStorage.removeItem('revela_admin_pw');
+    setPassword('');
+  }} />;
+}
+
+function AdminDashboard({
+  password,
+  selected,
+  setSelected,
+  onLock,
+}: {
+  password: string;
+  selected: string | null;
+  setSelected: (t: string | null) => void;
+  onLock: () => void;
+}) {
+  const overview = trpc.admin.overview.useQuery({ password }, { refetchInterval: 8000, retry: false });
+  const visitors = trpc.admin.visitors.useQuery({ password }, { refetchInterval: 8000, retry: false });
+
+  // session-cached password was wrong (e.g. password changed) → back to lock
+  if (overview.error?.data?.code === 'UNAUTHORIZED') {
+    onLock();
+    return null;
+  }
 
   const o = overview.data;
 
@@ -145,7 +229,12 @@ export default function Admin() {
             <span className="font-display text-2xl font-semibold">Revela</span>
             <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#edc840]">Admin · Live</span>
           </div>
-          <a href="/" className="text-[12px] text-[#fbf5ef]/60 hover:text-[#fbf5ef]">← View site</a>
+          <div className="flex items-center gap-5">
+            <a href="/" className="text-[12px] text-[#fbf5ef]/60 hover:text-[#fbf5ef]">← View site</a>
+            <button onClick={onLock} className="rounded-full border border-[#fbf5ef]/25 px-4 py-1.5 text-[11px] font-medium text-[#fbf5ef]/70 transition-colors hover:bg-[#fbf5ef]/10">
+              Lock
+            </button>
+          </div>
         </div>
       </header>
 
@@ -306,7 +395,7 @@ export default function Admin() {
         </section>
       </main>
 
-      {selected && <SessionDrawer token={selected} onClose={() => setSelected(null)} />}
+      {selected && <SessionDrawer token={selected} password={password} onClose={() => setSelected(null)} />}
     </div>
   );
 }

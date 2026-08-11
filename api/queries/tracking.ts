@@ -1,8 +1,18 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { asc, desc, eq } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "./connection";
 import { sessions, events, answers } from "@db/schema";
+
+// ── Admin password gate (server-enforced) ──────────────────
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "2026";
+
+function assertAdmin(password: string) {
+  if (password !== ADMIN_PASSWORD) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Wrong password" });
+  }
+}
 
 const trackInput = z.object({
   token: z.string().min(8).max(64),
@@ -139,9 +149,17 @@ export const trackRouter = createRouter({
     }),
 });
 
-// ── Admin ──────────────────────────────────────────────────
+// ── Admin (password-protected) ─────────────────────────────
+const adminAuth = z.object({ password: z.string().max(128) });
+
 export const adminRouter = createRouter({
-  overview: publicQuery.query(async () => {
+  check: publicQuery.input(adminAuth).query(({ input }) => {
+    assertAdmin(input.password);
+    return { ok: true as const };
+  }),
+
+  overview: publicQuery.input(adminAuth).query(async ({ input }) => {
+    assertAdmin(input.password);
     const db = getDb();
     const all = await db.select().from(sessions).orderBy(desc(sessions.lastSeenAt));
 
@@ -177,14 +195,16 @@ export const adminRouter = createRouter({
     };
   }),
 
-  visitors: publicQuery.query(async () => {
+  visitors: publicQuery.input(adminAuth).query(async ({ input }) => {
+    assertAdmin(input.password);
     const db = getDb();
     return db.select().from(sessions).orderBy(desc(sessions.lastSeenAt)).limit(500);
   }),
 
   sessionDetail: publicQuery
-    .input(z.object({ token: z.string().min(8).max(64) }))
+    .input(z.object({ password: z.string().max(128), token: z.string().min(8).max(64) }))
     .query(async ({ input }) => {
+      assertAdmin(input.password);
       const db = getDb();
       const [session] = await db.select().from(sessions).where(eq(sessions.token, input.token)).limit(1);
       const evts = await db
