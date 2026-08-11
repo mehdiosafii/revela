@@ -10,6 +10,7 @@ export interface DeepReport {
   archetype: string;
   archetypeLine: string;
   headline: string;
+  hook?: string;
   openingLetter: string;
   corePattern: string;
   rootCause: string;
@@ -41,7 +42,13 @@ interface View {
 }
 
 function toView(r: BuiltInReport, deep: DeepReport | null): View {
-  const paras = (s: string) => s.split(/\n+/).filter(Boolean);
+  // AI payloads are untrusted — coerce anything into string paragraphs
+  const paras = (s: unknown): string[] =>
+    typeof s === 'string'
+      ? s.split(/\n+/).filter(Boolean)
+      : Array.isArray(s)
+        ? s.filter((x): x is string => typeof x === 'string')
+        : [];
   if (deep) {
     return {
       archetypeName: deep.archetype,
@@ -57,8 +64,14 @@ function toView(r: BuiltInReport, deep: DeepReport | null): View {
       hiddenTruth: paras(deep.hiddenTruth),
       herWords: r.herWords,
       herWordsReflected: paras(deep.herWordsReflected),
-      manSheNeeds: deep.manSheNeeds,
-      path: deep.ninetyDayPath,
+      manSheNeeds: Array.isArray(deep.manSheNeeds)
+        ? deep.manSheNeeds.filter((x): x is string => typeof x === 'string')
+        : [],
+      path: Array.isArray(deep.ninetyDayPath)
+        ? deep.ninetyDayPath
+            .filter((p): p is { title: string; text: string } => !!p && typeof p === 'object')
+            .map((p) => ({ title: typeof p.title === 'string' ? p.title : '', text: typeof p.text === 'string' ? p.text : '' }))
+        : [],
       closingLine: deep.closingLine,
     };
   }
@@ -83,8 +96,8 @@ function toView(r: BuiltInReport, deep: DeepReport | null): View {
 }
 
 /* render *emphasis* markers from report text as real italics */
-function em(text: string): React.ReactNode {
-  const parts = text.split(/\*([^*]+)\*/g);
+function em(text: unknown): React.ReactNode {
+  const parts = (typeof text === 'string' ? text : '').split(/\*([^*]+)\*/g);
   return parts.map((part, i) =>
     i % 2 === 1 ? <em key={i} className="italic">{part}</em> : <React.Fragment key={i}>{part}</React.Fragment>,
   );
@@ -207,6 +220,17 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
 
   const unlockSub = `Secure checkout via Stripe · one-time payment · read your full report instantly`;
 
+  // the first sentence of her report — shown unblurred, names what she's doing wrong
+  const hook =
+    (typeof deep?.hook === 'string' && deep.hook.trim()) ||
+    (r.style === 'anxious'
+      ? `${r.name}, what you're doing — loving harder every time he pulls back — is exactly what pushes him away, and here's why.`
+      : r.style === 'avoidant'
+        ? `${r.name}, what you're doing — leaving the moment it starts to feel real — is what's keeping you single, and here's why.`
+        : r.style === 'fearful'
+          ? `${r.name}, what you're doing — pulling him close, then pushing him away — is the very thing breaking your relationships, and here's why.`
+          : `${r.name}, what you're doing — letting an old pattern choose your men for you — is what's quietly running your love life, and here's why.`);
+
   return (
     <div className="bg-grain min-h-screen pb-24">
       {/* ── header ── */}
@@ -242,14 +266,35 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
         </Reveal>
       </section>
 
-      {/* ── the locked report: blurred behind the paywall ── */}
+      {/* ── the locked report: first sentence clear, the rest blurred ── */}
       <section className="relative px-4 md:px-6">
         <div className="relative mx-auto max-w-3xl">
-          <div
-            aria-hidden
-            className="select-none overflow-hidden rounded-[2rem] border border-[#751545]/10 bg-white/70 px-7 py-12 md:px-14"
-            style={{ filter: 'blur(4px)', pointerEvents: 'none', height: 780 }}
-          >
+          {/* clear opening — the first sentence of her report */}
+          <Reveal>
+            <div className="rounded-t-[2rem] border border-b-0 border-[#751545]/10 bg-white px-7 pb-9 pt-12 md:px-14">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">
+                Reading I — from your report
+              </p>
+              <p className="font-display mt-6 text-[1.55rem] font-light leading-[1.45] text-[#3d0b26] md:text-[1.9rem]">
+                {hook}
+              </p>
+              <div className="mt-8 flex items-center gap-3 md:gap-4">
+                <div className="h-px min-w-4 flex-1 bg-gradient-to-r from-transparent via-[#c9a24b]/50 to-transparent" />
+                <p className="max-w-[70%] text-center text-[10px] uppercase leading-relaxed tracking-[0.22em] text-[#751545]/45 md:max-w-none md:text-[11px] md:tracking-[0.25em]">
+                  — and that's only the first sentence
+                </p>
+                <div className="h-px min-w-4 flex-1 bg-gradient-to-r from-transparent via-[#c9a24b]/50 to-transparent" />
+              </div>
+            </div>
+          </Reveal>
+
+          {/* blurred remainder */}
+          <div className="relative">
+            <div
+              aria-hidden
+              className="select-none overflow-hidden rounded-b-[2rem] border-x border-b border-[#751545]/10 bg-white/70 px-7 py-12 md:px-14"
+              style={{ filter: 'blur(4px)', pointerEvents: 'none', height: 700 }}
+            >
             {/* cover */}
             <div className="text-center">
               <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Prepared exclusively for</p>
@@ -280,11 +325,11 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
                 ))}
               </div>
             </div>
-          </div>
+            </div>
 
-          {/* fade + unlock overlay */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-full rounded-[2rem]" style={{ background: 'linear-gradient(to bottom, rgba(251,245,239,0.0) 0%, rgba(251,245,239,0.0) 26%, rgba(251,245,239,0.55) 44%, rgba(251,245,239,0.96) 58%, #fbf5ef 68%)' }} />
-          <div className="absolute inset-x-0 bottom-8 flex justify-center px-6">
+            {/* fade + unlock overlay */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-full" style={{ background: 'linear-gradient(to bottom, rgba(251,245,239,0.0) 0%, rgba(251,245,239,0.0) 22%, rgba(251,245,239,0.55) 40%, rgba(251,245,239,0.96) 55%, #fbf5ef 65%)' }} />
+            <div className="absolute inset-x-0 bottom-8 flex justify-center px-4 md:px-6">
             <Reveal className="w-full max-w-md">
               <div className="rounded-[1.8rem] border border-[#c9a24b]/45 bg-white/95 p-8 text-center shadow-[0_30px_80px_-20px_rgba(61,11,38,0.35)] backdrop-blur-md">
                 <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#751545] to-[#c4688a] text-2xl text-white shadow-lg">🔒</span>
@@ -310,6 +355,7 @@ export default function Report({ answers, deep }: { answers: Answers; deep?: Dee
                 </div>
               </div>
             </Reveal>
+            </div>
           </div>
         </div>
       </section>

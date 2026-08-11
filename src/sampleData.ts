@@ -26,6 +26,7 @@ export const SAMPLE_DEEP: DeepReport = {
   archetype: 'The Lighthouse Keeper',
   archetypeLine: 'You shine for everyone lost at sea — and forget you are allowed to be reached.',
   headline: 'You don\'t have bad luck, Sofia. You have a job you never applied for.',
+  hook: 'Sofia, what you\'re doing — choosing men who need fixing so you never have to be chosen — is exactly what keeps love just out of reach, and here\'s why.',
   openingLetter: `Dear Sofia,
 
 You wrote that you keep choosing men who need fixing. I want to stop you there, because that's not quite what your answers say. Your answers say you keep choosing men who let you *work*. There's a difference, and it matters more than you think.

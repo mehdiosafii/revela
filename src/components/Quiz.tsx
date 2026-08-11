@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { QUESTIONS, ENCOURAGEMENTS, getZodiac, type Answers, type Question } from '../lib/engine';
 import { ping, trackAnswer, saveProgress } from '../lib/tracker';
+import { trpc } from '@/providers/trpc';
 import SocialProof from './SocialProof';
 import ZodiacBadge from './ZodiacBadge';
 
@@ -41,6 +42,41 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
   const answeredCount = Object.keys(answers).length;
   const progress = Math.round(((step + 1) / total) * 100);
   const name = answers.name || 'beautiful';
+
+  // ── AI revelation after the first 5 real answers (identity excluded) ──
+  // Prefetch as soon as all five are in (usually while she reads question 5's
+  // result transition), so the insight is already waiting when the step lands.
+  const [revelation, setRevelation] = useState<string | null>(null);
+  const revelationMutation = trpc.report.revelation.useMutation();
+  const revelationStarted = useRef(false);
+  const revelationFallback =
+    REVELATION_LINES[answers.single_duration ?? ''] ?? REVELATION_LINES['1 – 3 years'];
+
+  useEffect(() => {
+    const ready =
+      answers.single_duration && answers.home_climate && answers.father_figure &&
+      answers.mother_love && answers.child_comfort;
+    if (!ready || revelationStarted.current) return;
+    revelationStarted.current = true;
+    revelationMutation.mutate(
+      {
+        name: answers.name ?? '',
+        single_duration: answers.single_duration,
+        home_climate: answers.home_climate,
+        father_figure: answers.father_figure,
+        mother_love: answers.mother_love,
+        child_comfort: answers.child_comfort,
+      },
+      {
+        onSuccess: (res) => setRevelation((cur) => cur ?? (res.ok && res.text ? res.text : revelationFallback)),
+        onError: () => setRevelation((cur) => cur ?? revelationFallback),
+      },
+    );
+    // never leave her stuck on the insight screen
+    const timeout = setTimeout(() => setRevelation((cur) => cur ?? revelationFallback), 30000);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, step]);
 
   useEffect(() => {
     setValue(answers[q.id] ?? '');
@@ -92,7 +128,7 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
   const canContinue = () => {
     if (q.type === 'tel') return true; // optional
     if (q.type === 'photo') return true; // skippable
-    if (q.type === 'revelation') return true;
+    if (q.type === 'revelation') return revelation !== null; // wait for the AI insight
     return value.trim().length > 0;
   };
 
@@ -127,19 +163,30 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
           key={step}
           className={`w-full max-w-xl ${leaving ? 'animate-step-out' : 'animate-step-in'}`}
         >
-          {/* ── Revelation interstitial (after the first 5 questions) ── */}
+          {/* ── AI revelation interstitial (after the first 5 real answers) ── */}
           {q.type === 'revelation' && (
             <div className="text-center">
               <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">
                 First insight · unlocked
               </p>
               <div className="mx-auto mt-8 h-px w-16 bg-gradient-to-r from-transparent via-[#c9a24b] to-transparent" />
-              <p className="font-display mx-auto mt-8 max-w-lg text-2xl font-light italic leading-relaxed text-[#3d0b26] md:text-[1.75rem]">
-                “{REVELATION_LINES[answers.single_duration] ?? REVELATION_LINES['1 – 3 years']}”
-              </p>
+              {revelation ? (
+                <p className="font-display animate-rise-in mx-auto mt-8 max-w-lg text-[1.35rem] font-light italic leading-relaxed text-[#3d0b26] md:text-[1.6rem]">
+                  “{revelation}”
+                </p>
+              ) : (
+                <div className="mx-auto mt-8 flex max-w-lg flex-col items-center gap-3">
+                  <p className="text-[12px] uppercase tracking-[0.25em] text-[#751545]/50">
+                    Reading your first five answers…
+                  </p>
+                  <div className="h-5 w-4/5 animate-pulse rounded-full bg-[#751545]/10" />
+                  <div className="h-5 w-full animate-pulse rounded-full bg-[#751545]/10" style={{ animationDelay: '0.15s' }} />
+                  <div className="h-5 w-3/5 animate-pulse rounded-full bg-[#751545]/10" style={{ animationDelay: '0.3s' }} />
+                </div>
+              )}
               <div className="mx-auto mt-8 h-px w-16 bg-gradient-to-r from-transparent via-[#c9a24b] to-transparent" />
               <p className="mt-6 text-[12.5px] text-[#751545]/55">
-                That was only question five. Imagine what the full report sees.
+                That was only five answers. Imagine what the full report sees.
               </p>
             </div>
           )}

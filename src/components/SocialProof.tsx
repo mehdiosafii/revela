@@ -56,12 +56,19 @@ export default function SocialProof({ active }: { active: boolean }) {
 
   return (
     <div
-      className={`fixed bottom-5 right-5 z-[90] w-[330px] max-w-[calc(100vw-2.5rem)] ${
+      className={`pointer-events-none fixed bottom-5 right-5 z-[90] w-[330px] max-w-[calc(100vw-2.5rem)] ${
         leaving ? 'animate-toast-out' : 'animate-toast-in'
       }`}
       role="status"
     >
-      <div className="rounded-2xl border border-[#751545]/15 bg-white/95 p-4 shadow-[0_18px_50px_-12px_rgba(61,11,38,0.35)] backdrop-blur-md">
+      <div className="relative rounded-2xl border border-[#751545]/15 bg-white/95 p-4 shadow-[0_18px_50px_-12px_rgba(61,11,38,0.35)] backdrop-blur-md">
+        <button
+          aria-label="Dismiss"
+          onClick={() => setLeaving(true)}
+          className="pointer-events-auto absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#751545]/15 bg-white text-[11px] text-[#751545]/60 shadow-sm transition-colors hover:text-[#751545]"
+        >
+          ✕
+        </button>
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#751545] to-[#c4688a] text-sm font-semibold text-white">
             {initials(r.name)}

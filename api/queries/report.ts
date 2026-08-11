@@ -35,6 +35,7 @@ export interface ClaudeReport {
   archetype: string;
   archetypeLine: string;
   headline: string;
+  hook: string;
   openingLetter: string;
   corePattern: string;
   rootCause: string;
@@ -75,6 +76,7 @@ STRUCTURE YOUR RESPONSE AS EXACTLY THIS JSON (valid JSON only, no markdown, no p
   "archetype": "A 2-4 word archetype name (e.g. 'The Over-Giver', 'The Fortress') that fits HER specifically",
   "archetypeLine": "One sentence definition of this archetype, poetic but precise",
   "headline": "A one-line headline for her report that feels like it was written only for her",
+  "hook": "ONE sentence — the first sentence of her report, shown unblurred. Direct, personal, slightly confrontational but loving: name WHAT SHE IS DOING WRONG in her own terms, then promise the explanation. Pattern: '<Name>, what you're doing — <her core pattern, drawn from her exes/pulling-away/conflict answers> — is exactly what <the cost>, and here's why.' Max 35 words. No asterisks, no quotes.",
   "openingLetter": "3-4 paragraphs. Address her by name. Open by reflecting something TRUE from her answers that she probably hasn't connected yet — a thread between her childhood answer and her current pattern. Make her feel seen in the first two sentences. Reference her own words from 'why she thinks she's single' — and gently show her that the real reason is different from what she wrote.",
   "corePattern": "2-3 paragraphs naming her exact recurring pattern — the loop she runs from first date to ending. Be specific using her answers about pulling away, conflict, and her exes. Show the mechanism: what she does, what the man experiences, how it ends.",
   "rootCause": "2-3 paragraphs tracing it to the root — her father figure answer, her home climate, her comfort answer. Connect the dots she hasn't connected. This is the section that makes women cry: show her the little girl's logic that still runs her love life today.",
@@ -102,13 +104,53 @@ type GenResult =
   | { ok: true; report: ClaudeReport; provider: string }
   | { ok: false; reason: string; httpStatus?: number; detail?: string };
 
+// AI output is untrusted — models sometimes return arrays or objects where a
+// string is expected. Coerce everything into the exact shapes the client
+// renders, or the report page crashes on a `.split` of a non-string.
+function normalizeReport(raw: unknown): ClaudeReport | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const str = (v: unknown): string =>
+    typeof v === "string"
+      ? v
+      : Array.isArray(v)
+        ? v.filter((x) => typeof x === "string").join("\n\n")
+        : "";
+  const strArr = (v: unknown): string[] =>
+    Array.isArray(v) ? v.map((x) => (typeof x === "string" ? x : "")).filter(Boolean) : [];
+  const path = Array.isArray(o.ninetyDayPath)
+    ? (o.ninetyDayPath as unknown[])
+        .map((p) => {
+          const pp = (p ?? {}) as Record<string, unknown>;
+          return { title: str(pp.title), text: str(pp.text) };
+        })
+        .filter((p) => p.title || p.text)
+    : [];
+  const report: ClaudeReport = {
+    archetype: str(o.archetype) || "The Hidden Pattern",
+    archetypeLine: str(o.archetypeLine),
+    headline: str(o.headline),
+    hook: str(o.hook),
+    openingLetter: str(o.openingLetter),
+    corePattern: str(o.corePattern),
+    rootCause: str(o.rootCause),
+    hiddenTruth: str(o.hiddenTruth),
+    herWordsReflected: str(o.herWordsReflected),
+    manSheNeeds: strArr(o.manSheNeeds).slice(0, 6),
+    ninetyDayPath: path,
+    closingLine: str(o.closingLine),
+  };
+  if (!report.openingLetter && !report.corePattern) return null;
+  return report;
+}
+
 function parseReport(raw: string): ClaudeReport | null {
   try {
     const clean = raw.replace(/```json|```/g, "").trim();
     const start = clean.indexOf("{");
     const end = clean.lastIndexOf("}");
     if (start === -1 || end === -1) return null;
-    return JSON.parse(clean.slice(start, end + 1)) as ClaudeReport;
+    return normalizeReport(JSON.parse(clean.slice(start, end + 1)));
   } catch {
     return null;
   }
@@ -194,10 +236,102 @@ async function tryClaude(input: z.infer<typeof answerSchema>): Promise<GenResult
   }
 }
 
+// ── Mid-quiz revelation: a real AI insight after the first 5 answers ──
+const revelationSchema = z.object({
+  name: z.string().max(120),
+  single_duration: z.string().max(300).optional(),
+  home_climate: z.string().max(300).optional(),
+  father_figure: z.string().max(300).optional(),
+  mother_love: z.string().max(300).optional(),
+  child_comfort: z.string().max(300).optional(),
+});
+
+function buildRevelationPrompt(a: z.infer<typeof revelationSchema>): string {
+  return `A woman named ${a.name} is taking your relationship-pattern assessment. She has just answered the first five questions:
+
+- How long single: ${a.single_duration ?? "—"}
+- Childhood home felt: ${a.home_climate ?? "—"}
+- Father figure was: ${a.father_figure ?? "—"}
+- Mother taught her love is: ${a.mother_love ?? "—"}
+- As a child needing comfort: ${a.child_comfort ?? "—"}
+
+Write ONE short mid-quiz revelation for her (2-3 sentences, max 60 words). It must:
+- Connect at least two of her ACTUAL answers above into one sharp, loving insight she hasn't seen herself — e.g. a thread between her childhood home and her current love life.
+- Address her by name once, naturally.
+- Feel uncanny, not generic — if the sentence could apply to any woman, rewrite it.
+- End with forward motion ("keep going", "the next questions will show you…") — no questions back to her.
+- Plain text only. No quotes, no asterisks, no preamble.`;
+}
+
+type RevResult = { ok: true; text: string; provider: string } | { ok: false; reason: string };
+
+async function tryMoonshotRevelation(input: z.infer<typeof revelationSchema>): Promise<RevResult> {
+  const key = process.env.MOONSHOT_API_KEY;
+  if (!key) return { ok: false, reason: "no_key" };
+  try {
+    const res = await fetch("https://api.moonshot.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: "moonshot-v1-32k",
+        temperature: 0.9,
+        max_tokens: 220,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: buildRevelationPrompt(input) },
+        ],
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!res.ok) return { ok: false, reason: "api_error" };
+    const data = (await res.json()) as { choices: { message: { content: string } }[] };
+    const text = (data.choices?.[0]?.message?.content ?? "").trim().replace(/^["“]|["”]$/g, "");
+    if (text.length < 20) return { ok: false, reason: "empty" };
+    return { ok: true, text, provider: "moonshot" };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
+async function tryClaudeRevelation(input: z.infer<typeof revelationSchema>): Promise<RevResult> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return { ok: false, reason: "no_key" };
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 220,
+        temperature: 0.9,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: buildRevelationPrompt(input) }],
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!res.ok) return { ok: false, reason: "api_error" };
+    const data = (await res.json()) as { content: { type: string; text?: string }[] };
+    const text = (data.content?.find((b) => b.type === "text")?.text ?? "").trim().replace(/^["“]|["”]$/g, "");
+    if (text.length < 20) return { ok: false, reason: "empty" };
+    return { ok: true, text, provider: "claude" };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
 export const reportRouter = createRouter({
   hasClaude: publicQuery.query(() => ({
     enabled: !!(process.env.MOONSHOT_API_KEY || process.env.ANTHROPIC_API_KEY),
   })),
+
+  revelation: publicQuery.input(revelationSchema).mutation(async ({ input }) => {
+    for (const fn of [tryMoonshotRevelation, tryClaudeRevelation]) {
+      const r = await fn(input);
+      if (r.ok) return r;
+      if (r.reason !== "no_key") console.error("Revelation provider failed:", r.reason);
+    }
+    return { ok: false as const, reason: "all_providers_failed" };
+  }),
 
   generate: publicQuery.input(answerSchema).mutation(async ({ input }) => {
     // provider chain: Moonshot → Claude

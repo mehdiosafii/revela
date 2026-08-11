@@ -69,7 +69,7 @@ export const QUESTIONS: Question[] = [
   },
 
 
-  // — Q5: first real question, then the revelation hits —
+  // — Q5: first real question —
   {
     id: 'single_duration',
     type: 'qcm',
@@ -84,7 +84,6 @@ export const QUESTIONS: Question[] = [
     ],
     motivation: 'Honesty is power →',
   },
-  { id: 'revelation', type: 'revelation', title: '', motivation: 'I want to know more →' },
 
   // — Childhood & parents —
   {
@@ -142,6 +141,9 @@ export const QUESTIONS: Question[] = [
     ],
     motivation: 'Halfway through this chapter →',
   },
+
+  // — The revelation hits after 5 real answers (identity questions excluded) —
+  { id: 'revelation', type: 'revelation', title: '', motivation: 'I want to know more →' },
 
   // — Exes —
   {
