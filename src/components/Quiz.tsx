@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { QUESTIONS, ENCOURAGEMENTS, getZodiac, type Answers, type Question } from '../lib/engine';
-import { ping, trackAnswer } from '../lib/tracker';
+import { ping, trackAnswer, saveProgress } from '../lib/tracker';
 import SocialProof from './SocialProof';
 import ZodiacBadge from './ZodiacBadge';
+
+const FREE_CHOICE = '__free__';
 
 interface Props {
   answers: Answers;
   setAnswers: (a: Answers) => void;
+  initialStep: number;
   onDone: () => void;
+  onHome: () => void;
 }
 
 const REVELATION_LINES: Record<string, string> = {
@@ -23,11 +27,12 @@ const REVELATION_LINES: Record<string, string> = {
     'You didn’t say this out loud — but your honesty just did something rare: it skipped the shame. That tells us you’re closer to love than women with a decade of wrong relationships. Keep going.',
 };
 
-export default function Quiz({ answers, setAnswers, onDone }: Props) {
-  const [step, setStep] = useState(0);
+export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome }: Props) {
+  const [step, setStep] = useState(initialStep);
   const [leaving, setLeaving] = useState(false);
   const [value, setValue] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
+  const [freeMode, setFreeMode] = useState(false);
   const [encIdx, setEncIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
@@ -40,8 +45,10 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
   useEffect(() => {
     setValue(answers[q.id] ?? '');
     setSelected(null);
+    setFreeMode(false);
     setEncIdx((e) => (e + 1) % ENCOURAGEMENTS.length);
     window.scrollTo({ top: 0 });
+    saveProgress(step, answers);
     const t = setTimeout(() => inputRef.current?.focus(), 420);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,12 +58,14 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
     const nextAnswers = { ...answers, [q.id]: val };
     setAnswers(nextAnswers);
     if (val) trackAnswer(q.id, val);
+    const nextStep = advance ? step + 1 : step;
     ping({
       stage: 'quiz',
-      questionIndex: advance ? step + 1 : step,
+      questionIndex: nextStep,
       questionId: q.id,
       identity: { name: nextAnswers.name, email: nextAnswers.email, phone: nextAnswers.phone },
     });
+    saveProgress(nextStep, nextAnswers);
     if (!advance) return;
     if (step === total - 1) {
       onDone();
@@ -71,6 +80,11 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
 
   const pickOption = (label: string) => {
     if (selected) return;
+    if (label === FREE_CHOICE) {
+      setFreeMode(true);
+      setTimeout(() => inputRef.current?.focus(), 80);
+      return;
+    }
     setSelected(label);
     setTimeout(() => commit(label), 480); // auto-advance, no Next needed
   };
@@ -88,7 +102,13 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
       {/* progress header */}
       <header className="fixed inset-x-0 top-0 z-50 bg-[#fbf5ef]/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 pt-4 pb-3">
-          <span className="font-display text-xl font-semibold tracking-tight text-[#3d0b26]">Revela</span>
+          <button
+            onClick={onHome}
+            title="Back to home — your progress is saved"
+            className="font-display text-xl font-semibold tracking-tight text-[#3d0b26] transition-opacity hover:opacity-60"
+          >
+            Revela
+          </button>
           <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#751545]/60">
             {step + 1} / {total}
           </span>
@@ -138,7 +158,7 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
               )}
 
               {/* QCM — click = auto advance */}
-              {q.type === 'qcm' && (
+              {q.type === 'qcm' && !freeMode && (
                 <div className="mt-9 flex flex-col gap-3">
                   {q.options!.map((o, i) => (
                     <button
@@ -164,9 +184,38 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
                       </span>
                     </button>
                   ))}
+                  {/* free expression */}
+                  <button
+                    onClick={() => pickOption(FREE_CHOICE)}
+                    className="mt-1 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-[#751545]/25 px-5 py-3.5 text-[13.5px] italic text-[#751545]/60 transition-all hover:border-[#751545]/60 hover:bg-white/60 hover:text-[#751545]"
+                  >
+                    <span className="text-[15px] not-italic">✎</span> None of these — I’d rather say it myself…
+                  </button>
                   <p className="mt-3 text-center text-[11.5px] uppercase tracking-widest text-[#751545]/40">
                     tap once — we’ll move you forward
                   </p>
+                </div>
+              )}
+
+              {/* free-expression mode for QCM */}
+              {q.type === 'qcm' && freeMode && (
+                <div className="animate-step-in mt-9">
+                  <textarea
+                    ref={(el) => {
+                      inputRef.current = el;
+                    }}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    placeholder="Say it in your own words — honestly, freely…"
+                    rows={4}
+                    className="w-full resize-none rounded-2xl border-[1.5px] border-[#751545]/20 bg-white/70 p-5 text-[15.5px] leading-relaxed text-[#3d0b26] outline-none backdrop-blur-sm transition-colors placeholder:text-[#751545]/30 focus:border-[#751545]"
+                  />
+                  <button
+                    onClick={() => setFreeMode(false)}
+                    className="mt-2 text-[12.5px] text-[#751545]/50 underline underline-offset-2"
+                  >
+                    ← back to the choices
+                  </button>
                 </div>
               )}
 
@@ -255,8 +304,8 @@ export default function Quiz({ answers, setAnswers, onDone }: Props) {
             </>
           )}
 
-          {/* ── Next button (hidden for qcm) ── */}
-          {q.type !== 'qcm' && (
+          {/* ── Next button (hidden for standard qcm, shown in free mode) ── */}
+          {(q.type !== 'qcm' || freeMode) && (
             <div className="mt-10 flex flex-col items-start gap-3">
               <button
                 onClick={() => canContinue() && commit(value)}

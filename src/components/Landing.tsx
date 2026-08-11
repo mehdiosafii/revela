@@ -50,17 +50,37 @@ function Stars({ size = 'text-sm' }: { size?: string }) {
   );
 }
 
-function CTAButton({ onStart, children, sub }: { onStart: () => void; children: React.ReactNode; sub?: string }) {
+function CTAButton({
+  onStart,
+  children,
+  sub,
+  resume,
+  onRestart,
+}: {
+  onStart: () => void;
+  children: React.ReactNode;
+  sub?: string;
+  resume?: boolean;
+  onRestart?: () => void;
+}) {
   return (
     <div className="flex flex-col items-center gap-3">
       <button
         onClick={onStart}
         className="btn-shine group flex items-center gap-3 rounded-full px-9 py-4 text-base font-semibold tracking-wide text-white md:px-12 md:py-5 md:text-lg"
       >
-        <span>{children}</span>
+        <span>{resume ? 'Continue where you left off' : children}</span>
         <span className="transition-transform duration-300 group-hover:translate-x-1.5">→</span>
       </button>
-      {sub && <p className="text-xs tracking-wide text-[#751545]/60">{sub}</p>}
+      {resume && (
+        <p className="text-[13px] text-[#751545]/70">
+          Welcome back — your answers are saved.{' '}
+          <button onClick={onRestart} className="font-medium text-[#751545] underline underline-offset-2">
+            start over instead
+          </button>
+        </p>
+      )}
+      {!resume && sub && <p className="text-xs tracking-wide text-[#751545]/60">{sub}</p>}
     </div>
   );
 }
@@ -90,7 +110,15 @@ const STATS = [
   { n: '71%', l: 'in a committed relationship within 12 months*' },
 ];
 
-export default function Landing({ onStart }: { onStart: () => void }) {
+export default function Landing({
+  onStart,
+  resume = false,
+  onRestart,
+}: {
+  onStart: () => void;
+  resume?: boolean;
+  onRestart?: () => void;
+}) {
   return (
     <div className="bg-grain min-h-screen">
       {/* ── Nav ── */}
@@ -140,7 +168,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
           </p>
         </Reveal>
         <Reveal delay={360} className="mt-10">
-          <CTAButton onStart={onStart} sub="Free · 21 questions · ~7 minutes · results instantly">
+          <CTAButton onStart={onStart} sub="Free · 21 questions · ~7 minutes · results instantly" resume={resume} onRestart={onRestart}>
             Discover Your Pattern
           </CTAButton>
         </Reveal>
@@ -186,7 +214,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
           </p>
         </Reveal>
         <Reveal delay={250} className="mt-10">
-          <CTAButton onStart={onStart}>Read My Blueprint</CTAButton>
+          <CTAButton onStart={onStart} resume={resume} onRestart={onRestart}>Read My Blueprint</CTAButton>
         </Reveal>
       </section>
 
@@ -331,7 +359,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
           </h2>
         </Reveal>
         <Reveal delay={150} className="mt-10">
-          <CTAButton onStart={onStart} sub="Free · private · your results in minutes">
+          <CTAButton onStart={onStart} sub="Free · private · your results in minutes" resume={resume} onRestart={onRestart}>
             Begin My Assessment
           </CTAButton>
         </Reveal>

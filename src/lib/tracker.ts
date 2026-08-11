@@ -4,6 +4,42 @@
 
 const TOKEN_KEY = 'revela_token';
 const START_KEY = 'revela_started_at';
+const PROGRESS_KEY = 'revela_progress';
+
+export interface SavedProgress {
+  step: number;
+  answers: Record<string, string>;
+}
+
+export function saveProgress(step: number, answers: Record<string, string>) {
+  // photo data-URLs are too heavy for localStorage — keep everything else
+  const light: Record<string, string> = {};
+  for (const [k, v] of Object.entries(answers)) {
+    if (k === 'photo' && v.length > 5000) continue;
+    light[k] = v;
+  }
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify({ step, answers: light }));
+  } catch {
+    /* storage full — non-fatal */
+  }
+}
+
+export function loadProgress(): SavedProgress | null {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as SavedProgress;
+    if (typeof p.step !== 'number' || typeof p.answers !== 'object') return null;
+    return p;
+  } catch {
+    return null;
+  }
+}
+
+export function clearProgress() {
+  localStorage.removeItem(PROGRESS_KEY);
+}
 
 export function getToken(): string {
   let t = localStorage.getItem(TOKEN_KEY);
