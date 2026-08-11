@@ -82,9 +82,9 @@ STRUCTURE YOUR RESPONSE AS EXACTLY THIS JSON (valid JSON only, no markdown, no p
   "herWordsReflected": "1 short paragraph quoting her own words about why she's single, then reframing them with compassion.",
   "manSheNeeds": ["Exactly 4 bullet strings describing the man who would actually work for her — each one specific to her pattern, each one starting differently, each one a concrete trait + why it matters FOR HER"],
   "ninetyDayPath": [
-    { "title": "Weeks 1–2 · <name>", "text": "2-3 sentences: the first concrete move, specific to her pattern" },
-    { "title": "Weeks 3–6 · <name>", "text": "2-3 sentences: the filtering/dating phase, specific to her pattern" },
-    { "title": "Weeks 7–12 · <name>", "text": "2-3 sentences: the commitment phase, specific to her timeline and children answer" }
+    { "title": "Weeks 1–2 · <short phase name like 'The Boundary Reset'>", "text": "2-3 sentences: the first concrete move, specific to her pattern" },
+    { "title": "Weeks 3–6 · <short phase name like 'The Filtering Phase'>", "text": "2-3 sentences: the filtering/dating phase, specific to her pattern" },
+    { "title": "Weeks 7–12 · <short phase name like 'The Commitment Window'>", "text": "2-3 sentences: the commitment phase, specific to her timeline and children answer" }
   ],
   "closingLine": "One final line she will remember. Warm, direct, about the future that is still available to her."
 }
@@ -92,8 +92,8 @@ STRUCTURE YOUR RESPONSE AS EXACTLY THIS JSON (valid JSON only, no markdown, no p
 RULES:
 - Output ONLY the JSON object. No code fences, no commentary.
 - Every paragraph must reference her specific answers — if a sentence could apply to any woman, rewrite it until it could only apply to her.
-- Use her name naturally (1-2 times total, not in every paragraph).
-- Never mention astrology as analysis (she knows it's not used).
+- Use her name naturally (1-2 times total, not in every paragraph) and NEVER inside a ninetyDayPath title — those titles are phase names only.
+- NEVER mention her zodiac sign or astrology anywhere in the report — no "as a Scorpio", no star references. Her sign is shown separately in the page header; the analysis must be purely psychological.
 - Never diagnose or use clinical labels as identity ("you have anxious attachment" → "your nervous system learned to...").
 - Total length: substantial — this is a premium report. Aim for depth over brevity.`;
 }
@@ -118,7 +118,7 @@ async function tryMoonshot(input: z.infer<typeof answerSchema>): Promise<GenResu
   const key = process.env.MOONSHOT_API_KEY;
   if (!key) return { ok: false, reason: "no_key" };
   try {
-    const res = await fetch("https://api.moonshot.cn/v1/chat/completions", {
+    const res = await fetch("https://api.moonshot.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "content-type": "application/json",
