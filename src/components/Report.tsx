@@ -92,7 +92,15 @@ function em(text: string): React.ReactNode {
 
 /* ── REAL 12h finisher deadline — anchored server-side when she finished ── */
 function useDeadline(): { label: string | null; expired: boolean } {
-  const q = trpc.public.deadline.useQuery({ token: getToken() }, { refetchInterval: 60000, retry: false });
+  const q = trpc.public.deadline.useQuery(
+    { token: getToken() },
+    {
+      // poll fast until the server anchor exists (the first report ping can be
+      // retried by the heartbeat), then settle into a slow refresh
+      refetchInterval: (query) => (query.state.data?.deadline ? 60000 : 10000),
+      retry: false,
+    },
+  );
   const [label, setLabel] = useState('');
   const [expired, setExpired] = useState(false);
   const dl = q.data?.deadline ?? null;

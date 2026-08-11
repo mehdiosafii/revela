@@ -57,8 +57,7 @@ async function geoFromIp(ip: string | null): Promise<{ country: string | null; c
   return { country: null, city: null };
 }
 
-export const trackRouter = createRouter({
-  ping: publicQuery.input(trackInput).mutation(async ({ input, ctx }) => {
+async function pingInner(input: z.infer<typeof trackInput>, ctx: { req: Request }) {
     const db = getDb();
     const now = new Date();
 
@@ -122,6 +121,16 @@ export const trackRouter = createRouter({
     }
 
     return { ok: true as const };
+}
+
+export const trackRouter = createRouter({
+  ping: publicQuery.input(trackInput).mutation(async ({ input, ctx }) => {
+    try {
+      return await pingInner(input, ctx);
+    } catch {
+      // tracking must never 500 the client — a missed ping is retried by the heartbeat
+      return { ok: false as const };
+    }
   }),
 
   answer: publicQuery
