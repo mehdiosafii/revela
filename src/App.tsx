@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import Home from './pages/Home'
 import Admin from './pages/Admin'
 import { Privacy, Terms, Refund, Contact } from './pages/Legal'
+import Sample from './pages/Sample'
 
 function ScrollTop() {
   const { pathname } = useLocation()
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/terms" element={<Terms />} />
         <Route path="/refund" element={<Refund />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/sample" element={<Sample />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </>
