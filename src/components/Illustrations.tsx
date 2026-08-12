@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { downscalePhoto } from '../lib/photo';
 import { trpc } from '../providers/trpc';
 import { getToken } from '../lib/tracker';
 import type { Answers } from '../lib/engine';
@@ -31,6 +32,7 @@ function downscale(dataUrl: string): Promise<string> {
    Runs only for unlocked reports with a photo; result cached in localStorage
    so the API is called once per visitor. */
 export default function Illustrations({ answers }: { answers: Answers }) {
+  const [photo, setPhoto] = useState<string | null>((answers.photo as string) || null);
   const [images, setImages] = useState<Illus[] | null>(() => {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
@@ -44,8 +46,7 @@ export default function Illustrations({ answers }: { answers: Answers }) {
 
   useEffect(() => {
     if (images || failed || gen.isPending) return;
-    const photo = answers.photo;
-    if (!photo || typeof photo !== 'string' || !photo.startsWith('data:image/')) return;
+    if (!photo || !photo.startsWith('data:image/')) return;
     downscale(photo)
       .then((small) => gen.mutateAsync({ token: getToken(), photo: small }))
       .then((res) => {
@@ -63,9 +64,8 @@ export default function Illustrations({ answers }: { answers: Answers }) {
       })
       .catch(() => setFailed(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers.photo, images, failed]);
+  }, [photo, images, failed]);
 
-  if (!answers.photo) return null;
   if (failed && !images) return null;
 
   const loading = !images;
@@ -81,7 +81,25 @@ export default function Illustrations({ answers }: { answers: Answers }) {
         </p>
       </div>
 
-      {loading ? (
+      {!photo && !images ? (
+        <label className="group mx-auto mt-10 flex max-w-md cursor-pointer flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-[#751545]/25 bg-white/60 p-10 text-center transition-colors hover:border-[#751545]/60">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#751545]/10 to-[#c4688a]/15 text-2xl text-[#751545]/60 transition-transform group-hover:scale-110">✦</div>
+          <p className="text-[15px] font-medium text-[#3d0b26]">Add your photo to create your four scenes</p>
+          <p className="text-[12px] text-[#751545]/50">Used only for these illustrations · never stored, never published</p>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const reader = new FileReader();
+              reader.onload = () => downscalePhoto(String(reader.result)).then(setPhoto);
+              reader.readAsDataURL(f);
+            }}
+          />
+        </label>
+      ) : loading ? (
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="animate-pulse rounded-3xl border border-[#751545]/10 bg-white/70 p-3">

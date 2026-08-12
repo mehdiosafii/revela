@@ -76,7 +76,12 @@ export default function Home() {
       const finished = loadFinished();
       if (finished && Object.keys(finished.answers).length > 0) {
         setAnswers(finished.answers);
-        if (finished.deep) setDeepReport(finished.deep as DeepReport);
+        if (finished.deep) {
+          setDeepReport(finished.deep as DeepReport);
+        } else {
+          // a previous generation failed and null was cached — heal it now
+          beginAnalysis(finished.answers);
+        }
         setUnlocked(true);
         setStage('report');
         window.scrollTo({ top: 0 });

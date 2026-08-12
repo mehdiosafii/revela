@@ -30178,16 +30178,16 @@ STRUCTURE YOUR RESPONSE AS EXACTLY THIS JSON (valid JSON only, no markdown, no p
   "archetypeLine": "One sentence definition of this archetype, poetic but precise",
   "headline": "A one-line headline for her report that feels like it was written only for her",
   "hook": "ONE sentence \u2014 the first sentence of her report, shown unblurred. Direct, personal, slightly confrontational but loving: name WHAT SHE IS DOING WRONG in her own terms, then promise the explanation. Pattern: '<Name>, what you're doing \u2014 <her core pattern, drawn from her exes/pulling-away/conflict answers> \u2014 is exactly what <the cost>, and here's why.' Max 35 words. No asterisks, no quotes.",
-  "openingLetter": "3-4 paragraphs. Address her by name. Open by reflecting something TRUE from her answers that she probably hasn't connected yet \u2014 a thread between her childhood answer and her current pattern. Make her feel seen in the first two sentences. Reference her own words from 'why she thinks she's single' \u2014 and gently show her that the real reason is different from what she wrote.",
-  "corePattern": "2-3 paragraphs naming her exact recurring pattern \u2014 the loop she runs from first date to ending. Be specific using her answers about pulling away, conflict, and her exes. Show the mechanism: what she does, what the man experiences, how it ends.",
-  "rootCause": "2-3 paragraphs tracing it to the root \u2014 her father figure answer, her home climate, her comfort answer. Connect the dots she hasn't connected. This is the section that makes women cry: show her the little girl's logic that still runs her love life today.",
-  "hiddenTruth": "1-2 paragraphs. The thing she didn't say but revealed between the lines. One sharp, loving insight she will screenshot.",
+  "openingLetter": "4-5 paragraphs, minimum 280 words. Address her by name. Open by reflecting something TRUE from her answers that she probably hasn't connected yet \u2014 a thread between her childhood answer and her current pattern. Make her feel seen in the first two sentences. Reference her own words from 'why she thinks she's single' \u2014 and gently show her that the real reason is different from what she wrote.",
+  "corePattern": "3-4 paragraphs, minimum 260 words, naming her exact recurring pattern \u2014 the loop she runs from first date to ending. Be specific using her answers about pulling away, conflict, and her exes. Show the mechanism: what she does, what the man experiences, how it ends.",
+  "rootCause": "3-4 paragraphs, minimum 260 words, tracing it to the root \u2014 her father figure answer, her home climate, her comfort answer. Connect the dots she hasn't connected. This is the section that makes women cry: show her the little girl's logic that still runs her love life today.",
+  "hiddenTruth": "2 paragraphs, minimum 140 words. The thing she didn't say but revealed between the lines. One sharp, loving insight she will screenshot.",
   "herWordsReflected": "1 short paragraph quoting her own words about why she's single, then reframing them with compassion.",
-  "manSheNeeds": ["Exactly 4 bullet strings describing the man who would actually work for her \u2014 each one specific to her pattern, each one starting differently, each one a concrete trait + why it matters FOR HER"],
+  "manSheNeeds": ["Exactly 4 bullet strings describing the man who would actually work for her \u2014 each one specific to her pattern, each one starting differently, each one a concrete trait + why it matters FOR HER, each 45-70 words with a concrete real-life example of how this trait shows up on a date or in conflict"],
   "ninetyDayPath": [
-    { "title": "Weeks 1\u20132 \xB7 <short phase name like 'The Boundary Reset'>", "text": "2-3 sentences: the first concrete move, specific to her pattern" },
-    { "title": "Weeks 3\u20136 \xB7 <short phase name like 'The Filtering Phase'>", "text": "2-3 sentences: the filtering/dating phase, specific to her pattern" },
-    { "title": "Weeks 7\u201312 \xB7 <short phase name like 'The Commitment Window'>", "text": "2-3 sentences: the commitment phase, specific to her timeline and children answer" }
+    { "title": "Weeks 1\u20132 \xB7 <short phase name like 'The Boundary Reset'>", "text": "4-6 sentences, minimum 80 words: the first concrete moves, specific to her pattern, including one exact sentence she can say out loud word-for-word" },
+    { "title": "Weeks 3\u20136 \xB7 <short phase name like 'The Filtering Phase'>", "text": "4-6 sentences, minimum 80 words: the filtering/dating phase, specific to her pattern, including one concrete green flag and one concrete red flag to watch for on real dates" },
+    { "title": "Weeks 7\u201312 \xB7 <short phase name like 'The Commitment Window'>", "text": "4-6 sentences, minimum 80 words: the commitment phase, specific to her timeline and children answer, including one exact conversation she should initiate and roughly when" }
   ],
   "closingLine": "One final line she will remember. Warm, direct, about the future that is still available to her."
 }
@@ -30198,7 +30198,7 @@ RULES:
 - Use her name naturally (1-2 times total, not in every paragraph) and NEVER inside a ninetyDayPath title \u2014 those titles are phase names only.
 - NEVER mention her zodiac sign or astrology anywhere in the report \u2014 no "as a Scorpio", no star references. Her sign is shown separately in the page header; the analysis must be purely psychological.
 - Never diagnose or use clinical labels as identity ("you have anxious attachment" \u2192 "your nervous system learned to...").
-- Total length: substantial \u2014 this is a premium report. Aim for depth over brevity.`;
+- Total length: substantial \u2014 this is a premium report she paid for. Target 1400-1800 words across all fields. Aim for depth: concrete scenes, exact sentences she can use, mechanisms explained \u2014 never filler or repetition.`;
 }
 function normalizeReport(raw2) {
   if (!raw2 || typeof raw2 !== "object") return null;

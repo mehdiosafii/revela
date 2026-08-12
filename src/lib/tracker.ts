@@ -15,7 +15,7 @@ export function saveProgress(step: number, answers: Record<string, string>) {
   // photo data-URLs are too heavy for localStorage — keep everything else
   const light: Record<string, string> = {};
   for (const [k, v] of Object.entries(answers)) {
-    if (k === 'photo' && v.length > 5000) continue;
+    if (k === 'photo' && v.length > 1_200_000) continue; // downscaled photos (~200-500KB) are kept
     light[k] = v;
   }
   try {
@@ -53,7 +53,7 @@ export interface FinishedSession {
 export function saveFinished(answers: Record<string, string>, deep: unknown | null = null) {
   const light: Record<string, string> = {};
   for (const [k, v] of Object.entries(answers)) {
-    if (k === 'photo' && v.length > 5000) continue;
+    if (k === 'photo' && v.length > 1_200_000) continue; // downscaled photos (~200-500KB) are kept
     light[k] = v;
   }
   try {

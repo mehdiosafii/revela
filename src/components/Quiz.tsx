@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { downscalePhoto } from '../lib/photo';
 import { QUESTIONS, ENCOURAGEMENTS, getZodiac, type Answers, type Question } from '../lib/engine';
 import { ping, trackAnswer, saveProgress } from '../lib/tracker';
 import { trpc } from '@/providers/trpc';
@@ -368,7 +369,8 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
                         const f = e.target.files?.[0];
                         if (!f) return;
                         const reader = new FileReader();
-                        reader.onload = () => setValue(String(reader.result));
+                        reader.onload = () =>
+                          downscalePhoto(String(reader.result)).then(setValue);
                         reader.readAsDataURL(f);
                       }}
                     />
