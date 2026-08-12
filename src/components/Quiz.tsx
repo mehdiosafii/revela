@@ -184,7 +184,7 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
           {/* ── AI revelation interstitial (after the first 5 real answers) ── */}
           {q.type === 'revelation' && (
             <div className="text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">
+              <p className="text-[9px] font-medium uppercase tracking-[0.25em] text-[#c9a24b]/80">
                 First insight · unlocked
               </p>
               <div className="mx-auto mt-8 h-px w-16 bg-gradient-to-r from-transparent via-[#c9a24b] to-transparent" />
