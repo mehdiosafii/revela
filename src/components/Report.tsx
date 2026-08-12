@@ -229,11 +229,13 @@ function Reading({
   );
 }
 
-function Paras({ items }: { items: string[] }) {
+function Paras({ items, tone }: { items: string[]; tone?: string }) {
   return (
     <>
       {items.map((p, i) => (
-        <p key={i} className="text-[15.5px] leading-[1.85] text-[#4a1230]/85">{em(p)}</p>
+        <p key={i} className={`text-[15.5px] leading-[1.85] ${tone ?? 'text-[#4a1230]/85'}`}>
+          {tone ? p : em(p)}
+        </p>
       ))}
     </>
   );
@@ -339,8 +341,8 @@ function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | nu
               “{v.herWords ?? ''}”
             </p>
             <div className="mx-auto mt-6 h-px w-16 bg-[#c9a24b]/40" />
-            <div className="mx-auto mt-6 max-w-xl text-[14.5px] leading-[1.8] text-[#fbf5ef]/75">
-              <Paras items={v.herWordsReflected ?? []} />
+            <div className="mx-auto mt-6 max-w-xl text-[14.5px] leading-[1.8]">
+              <Paras items={v.herWordsReflected ?? []} tone="text-[#fbf5ef]/80" />
             </div>
           </div>
         </section>
@@ -434,6 +436,27 @@ function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | nu
             <p className="mt-3 text-[12px] text-[#751545]/55">In the dialog, choose “Save as PDF”.</p>
             <p className="mt-5 text-[12px] leading-relaxed text-[#4a1230]/55">Stuck, or something didn’t land? Email <a className="underline" href="mailto:support@revela.love">support@revela.love</a> — a real person replies within 2 business days.</p>
           </div>
+        </div>
+      </section>
+
+      {/* ── scientific foundations ── */}
+      <section className="print-block mx-auto mt-16 max-w-2xl px-6">
+        <div className="rounded-2xl border border-[#751545]/10 bg-white/60 p-7">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#751545]/60">Scientific foundations</p>
+          <p className="mt-3 text-[13px] leading-relaxed text-[#4a1230]/70">
+            Revela readings draw on the adult attachment research tradition — the body of work studying how early caregiver bonds shape adult romantic behavior. Selected foundational references:
+          </p>
+          <ul className="mt-4 space-y-2.5 text-[12px] leading-relaxed text-[#4a1230]/60">
+            <li>Bowlby, J. (1969). <i>Attachment and Loss, Vol. 1: Attachment.</i> Basic Books.</li>
+            <li>Ainsworth, M. D. S., Blehar, M. C., Waters, E., & Wall, S. (1978). <i>Patterns of Attachment: A Psychological Study of the Strange Situation.</i> Erlbaum.</li>
+            <li>Hazan, C., & Shaver, P. (1987). Romantic love conceptualized as an attachment process. <i>Journal of Personality and Social Psychology, 52</i>(3), 511–524.</li>
+            <li>Fraley, R. C., & Shaver, P. R. (2000). Adult romantic attachment: Theoretical developments, emerging controversies, and unanswered questions. <i>Review of General Psychology, 4</i>(2), 132–154.</li>
+            <li>Mikulincer, M., & Shaver, P. R. (2016). <i>Attachment in Adulthood: Structure, Dynamics, and Change</i> (2nd ed.). Guilford Press.</li>
+            <li>Gottman, J. M., & Levenson, R. W. (1992). Marital processes predictive of later dissolution. <i>Journal of Personality and Social Psychology, 63</i>(2), 221–233.</li>
+          </ul>
+          <p className="mt-4 text-[11px] leading-relaxed text-[#4a1230]/45">
+            These references describe the general research tradition that informs Revela’s educational content. Your reading is a personalized reflection, not a clinical assessment, and individual results are not established by these studies.
+          </p>
         </div>
       </section>
 
