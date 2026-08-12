@@ -8,7 +8,7 @@
 export const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/14AcN472P95sfY30iq9AA00';
 
 // The unlock price shown across the report page.
-export const UNLOCK_PRICE = '$9.99 USD';
+export const UNLOCK_PRICE = '$9.99';
 export const UNLOCK_PRICE_ANCHOR = '$49.99';
 
 // 2. Support contact — shown in footer, Terms, Privacy and Refund policy.

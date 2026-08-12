@@ -531,7 +531,7 @@ export default function Report({ answers, deep, unlocked = false }: { answers: A
                 <div className="mt-6">
                   <p className="mb-4 text-[13px] text-[#4a1230]/60">
                     <span className="mr-2 tabular-nums line-through">{UNLOCK_PRICE_ANCHOR}</span>
-                    <span className="font-display text-2xl font-semibold text-[#751545]">{UNLOCK_PRICE}</span>
+                    <span className="font-display text-2xl font-semibold text-[#751545]">{UNLOCK_PRICE} <span className="text-[12px] font-normal text-[#4a1230]/50">USD</span></span>
                     <span className="ml-2 rounded-full bg-[#c9a24b]/20 px-2.5 py-0.5 text-[11px] font-semibold text-[#751545]">finisher price</span>
                   </p>
                   <UnlockButton sub={unlockSub} />
@@ -640,7 +640,7 @@ export default function Report({ answers, deep, unlocked = false }: { answers: A
             </h2>
             {deadline && !expired && (
               <p className="mt-5 text-[13px] text-[#751545]/70">
-                Your {UNLOCK_PRICE} finisher price expires in{' '}
+                Your finisher price expires in{' '}
                 <span className="font-display font-semibold tabular-nums text-[#3d0b26]">{deadline}</span>
                 {' '}— then it returns to {UNLOCK_PRICE_ANCHOR}.
               </p>
