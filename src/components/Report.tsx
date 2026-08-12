@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { buildReport, type Answers, type Report as BuiltInReport } from '../lib/engine';
 import { STRIPE_PAYMENT_LINK, UNLOCK_PRICE, UNLOCK_PRICE_ANCHOR } from '../lib/config';
+import Illustrations from './Illustrations';
 import { REVIEWS } from '../lib/engine';
 import { trpc } from '@/providers/trpc';
 import { getToken } from '../lib/tracker';
@@ -365,6 +366,9 @@ function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | nu
           <p className="mt-6 text-[12px] uppercase tracking-[0.25em] text-[#751545]/45">— Revela Institute</p>
         </section>
       )}
+
+      {/* ── Reading VII — envisioned (personalized illustrations) ── */}
+      <Illustrations answers={answers} />
 
       {/* ── bottom download ── */}
       <div className="no-print mt-10 text-center">

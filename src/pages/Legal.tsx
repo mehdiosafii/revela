@@ -36,7 +36,7 @@ export function Privacy() {
           <li><b>Assessment answers</b> — the responses you give in the 21-question assessment, used to generate your report.</li>
           <li><b>Contact details you provide</b> — first name, email, and (optionally) phone number and date of birth.</li>
           <li><b>Usage data</b> — pages visited, assessment progress, device type, and approximate location derived from your IP address (country/city level only), used to operate and improve the service.</li>
-          <li><b>Photo (optional)</b> — if you add one, it stays on your device; we store only the fact that a photo was added.</li>
+          <li><b>Photo (optional)</b> — if you add one, it is used solely to generate the personalized illustrations inside your report. It is processed transiently for that purpose and is never stored on our servers, never published, and never shared for any other use.</li>
         </ul>
       </section>
 

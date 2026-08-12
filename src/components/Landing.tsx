@@ -213,7 +213,7 @@ const FAQ = [
   },
   {
     q: 'Are my answers private?',
-    a: 'Yes. Your answers are encrypted, never sold, and never shared. Your photo (optional) is never published. You can request full deletion anytime via our privacy page.',
+    a: 'Yes. Your answers are encrypted, never sold, and never shared. Your photo (optional) is used only to create the illustrations in your report — never stored, never published. You can request full deletion anytime via our privacy page.',
   },
   {
     q: 'What if the report doesn’t resonate with me?',

@@ -14,5 +14,6 @@ export const env = {
   isProduction: process.env.NODE_ENV === "production",
   // Supabase Postgres connection string (transaction pooler, port 6543)
   databaseUrl: required("DATABASE_URL"),
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   port: Number(process.env.PORT ?? 3000),
 };
