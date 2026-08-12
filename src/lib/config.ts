@@ -5,7 +5,7 @@
 // 1. Create a Stripe Payment Link for the full report unlock ($9.99):
 //    Stripe Dashboard → Payment Links → New → paste the URL below.
 //    The "Unlock My Full Report" buttons point here.
-export const STRIPE_PAYMENT_LINK = 'https://pay.foorsa.ma/b/28EbJ1170ayH8lq56sdfG06';
+export const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/14AcN472P95sfY30iq9AA00';
 
 // The unlock price shown across the report page.
 export const UNLOCK_PRICE = '$9.99 USD';
