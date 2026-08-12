@@ -44,8 +44,30 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
 
 /* ── REAL scarcity: today's actual usage, read from the live database ── */
 function useSpotsLeft() {
-  const q = trpc.public.spotsLeft.useQuery(undefined, { refetchInterval: 30000, retry: false });
+  const q = trpc.public.spotsLeft.useQuery(undefined, { refetchInterval: 8000, retry: false });
   return q.data ?? null;
+}
+
+/* the spot count — pulses gold whenever it drops, so visitors SEE it shrink */
+export function SpotNumber({ value }: { value: number }) {
+  const [flash, setFlash] = useState(false);
+  const prev = useRef(value);
+  useEffect(() => {
+    if (prev.current !== value) {
+      prev.current = value;
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 1600);
+      return () => clearTimeout(t);
+    }
+  }, [value]);
+  return (
+    <span
+      className="inline-block font-semibold tabular-nums text-[#edc840] transition-transform duration-300"
+      style={flash ? { transform: 'scale(1.35)', textShadow: '0 0 14px rgba(237,200,64,0.9)' } : undefined}
+    >
+      {value}
+    </span>
+  );
 }
 
 /* live countdown to midnight UTC, when the day's spots reset */
@@ -78,7 +100,7 @@ function ScarcityBar() {
   return (
     <div className="fixed inset-x-0 top-0 z-[60] bg-[#3d0b26] px-4 py-2 text-center">
       <p className="text-[11.5px] font-medium tracking-wide text-[#fbf5ef]/90">
-        Only <span className="font-semibold text-[#edc840]">{spots.left} report spots left today</span>
+        Only <SpotNumber value={spots.left} /> <span className="font-semibold text-[#edc840]">report spots left today</span>
         {reset && (
           <span className="text-[#fbf5ef]/70">
             {' '}· new spots in <span className="font-semibold tabular-nums text-[#edc840]">{reset}</span>

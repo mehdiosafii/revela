@@ -269,3 +269,12 @@
   background: rgba(117, 21, 69, 0.3);
   border-radius: 8px;
 }
+
+/* ── print / PDF export ── */
+@media print {
+  .no-print { display: none !important; }
+  body { background: #ffffff !important; }
+  .print-block { break-inside: avoid; }
+  .print-break { break-before: page; }
+  * { box-shadow: none !important; }
+}

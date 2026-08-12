@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { trpc } from '@/providers/trpc';
-import { useResetCountdown } from './Landing';
+import { useResetCountdown, SpotNumber } from './Landing';
 
 interface Props {
   name: string;
@@ -86,7 +86,7 @@ export default function Analyzing({ name, onDone, generating = false }: Props) {
   }));
 
   // live daily scarcity — same real numbers as everywhere else
-  const spotsQ = trpc.public.spotsLeft.useQuery(undefined, { refetchInterval: 30000, retry: false });
+  const spotsQ = trpc.public.spotsLeft.useQuery(undefined, { refetchInterval: 8000, retry: false });
   const spots = spotsQ.data ?? null;
   const resetLabel = useResetCountdown(spots?.resetAt);
 
@@ -182,7 +182,7 @@ export default function Analyzing({ name, onDone, generating = false }: Props) {
 
       {spots && spots.left > 0 && (
         <p className="absolute bottom-16 text-[11.5px] font-medium tracking-wide text-[#fbf5ef]/60">
-          Only <span className="font-semibold text-[#edc840]">{spots.left} spots left today</span>
+          Only <SpotNumber value={spots.left} /> <span className="font-semibold text-[#edc840]">spots left today</span>
           {resetLabel && (
             <>
               {' '}· new spots in <span className="font-semibold tabular-nums text-[#edc840]">{resetLabel}</span>

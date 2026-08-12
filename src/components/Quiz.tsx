@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { QUESTIONS, ENCOURAGEMENTS, getZodiac, type Answers, type Question } from '../lib/engine';
 import { ping, trackAnswer, saveProgress } from '../lib/tracker';
 import { trpc } from '@/providers/trpc';
-import { useResetCountdown } from './Landing';
+import { useResetCountdown, SpotNumber } from './Landing';
 import SocialProof from './SocialProof';
 import ZodiacBadge from './ZodiacBadge';
 
@@ -45,7 +45,7 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
   const name = answers.name || 'beautiful';
 
   // real daily scarcity — same live numbers as the landing page
-  const spotsQ = trpc.public.spotsLeft.useQuery(undefined, { refetchInterval: 30000, retry: false });
+  const spotsQ = trpc.public.spotsLeft.useQuery(undefined, { refetchInterval: 8000, retry: false });
   const spots = spotsQ.data ?? null;
   const resetLabel = useResetCountdown(spots?.resetAt);
 
@@ -164,7 +164,7 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
         {spots && spots.left > 0 && (
           <div className="bg-[#3d0b26] px-4 py-1.5 text-center">
             <p className="text-[11px] font-medium tracking-wide text-[#fbf5ef]/90">
-              Only <span className="font-semibold text-[#edc840]">{spots.left} spots left today</span>
+              Only <SpotNumber value={spots.left} /> <span className="font-semibold text-[#edc840]">spots left today</span>
               {resetLabel && (
                 <span className="text-[#fbf5ef]/70">
                   {' '}· new spots in <span className="font-semibold tabular-nums text-[#edc840]">{resetLabel}</span>

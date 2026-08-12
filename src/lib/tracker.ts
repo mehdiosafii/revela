@@ -41,6 +41,42 @@ export function clearProgress() {
   localStorage.removeItem(PROGRESS_KEY);
 }
 
+/* ── finished sessions: answers + AI report kept locally so the unlocked
+   report page can be rebuilt exactly as she saw it after the Stripe redirect ── */
+const FINISHED_KEY = 'revela_finished';
+
+export interface FinishedSession {
+  answers: Record<string, string>;
+  deep: unknown | null;
+}
+
+export function saveFinished(answers: Record<string, string>, deep: unknown | null = null) {
+  const light: Record<string, string> = {};
+  for (const [k, v] of Object.entries(answers)) {
+    if (k === 'photo' && v.length > 5000) continue;
+    light[k] = v;
+  }
+  try {
+    const raw = localStorage.getItem(FINISHED_KEY);
+    const prev: FinishedSession | null = raw ? JSON.parse(raw) : null;
+    localStorage.setItem(FINISHED_KEY, JSON.stringify({ answers: light, deep: deep ?? prev?.deep ?? null }));
+  } catch {
+    /* storage full — non-fatal */
+  }
+}
+
+export function loadFinished(): FinishedSession | null {
+  try {
+    const raw = localStorage.getItem(FINISHED_KEY);
+    if (!raw) return null;
+    const f = JSON.parse(raw) as FinishedSession;
+    if (typeof f.answers !== 'object' || !f.answers) return null;
+    return f;
+  } catch {
+    return null;
+  }
+}
+
 export function getToken(): string {
   let t = localStorage.getItem(TOKEN_KEY);
   if (!t) {

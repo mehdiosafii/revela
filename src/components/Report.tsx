@@ -202,11 +202,194 @@ function UnlockButton({ sub }: { sub?: string }) {
   );
 }
 
-export default function Report({ answers, deep }: { answers: Answers; deep?: DeepReport | null }) {
+/* ── one reading block in the unlocked full report ── */
+function Reading({
+  numeral, title, subtitle, children,
+}: {
+  numeral: string; title: string; subtitle?: string; children: React.ReactNode;
+}) {
+  return (
+    <section className="print-block mx-auto max-w-3xl px-6 pt-16 md:px-0">
+      <div className="flex items-baseline gap-4">
+        <span className="font-display shrink-0 text-2xl font-medium text-[#c9a24b]">{numeral}</span>
+        <div>
+          <h2 className="font-display text-2xl font-medium text-[#3d0b26] md:text-3xl">{title}</h2>
+          {subtitle && <p className="mt-1 text-[12px] uppercase tracking-[0.22em] text-[#751545]/50">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="mt-2 h-px w-full bg-gradient-to-r from-[#c9a24b]/40 via-[#751545]/15 to-transparent" />
+      <div className="mt-7 flex flex-col gap-4">{children}</div>
+    </section>
+  );
+}
+
+function Paras({ items }: { items: string[] }) {
+  return (
+    <>
+      {items.map((p, i) => (
+        <p key={i} className="text-[15.5px] leading-[1.85] text-[#4a1230]/85">{em(p)}</p>
+      ))}
+    </>
+  );
+}
+
+/* ── the UNLOCKED full report: everything, unblurred, printable as PDF ── */
+function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | null }) {
+  const r = buildReport(answers);
+  const v = toView(r, deep);
+  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  useEffect(() => {
+    const prev = document.title;
+    document.title = `${r.name} — Revela Personal Report`;
+    return () => { document.title = prev; };
+  }, [r.name]);
+
+  const download = () => window.print();
+
+  const downloadBtn = (
+    <button
+      onClick={download}
+      className="btn-shine group inline-flex items-center gap-2.5 whitespace-nowrap rounded-full px-7 py-3.5 text-[14.5px] font-semibold text-white"
+    >
+      <span>⤓</span> Download my report as PDF
+    </button>
+  );
+
+  return (
+    <div className="bg-grain min-h-screen pb-16">
+      {/* ── header with download ── */}
+      <header className="no-print sticky top-0 z-50 border-b border-[#751545]/10 bg-[#fbf5ef]/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+          <div className="flex items-baseline gap-1">
+            <span className="font-display text-2xl font-semibold tracking-tight text-[#3d0b26]">Revela</span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#c9a24b]">Personal Report</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#c9a24b]/20 px-3 py-1 text-[11px] font-semibold text-[#751545]">Unlocked ✓</span>
+            {downloadBtn}
+          </div>
+        </div>
+      </header>
+
+      {/* ── cover ── */}
+      <section className="px-6 pb-6 pt-16 text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Prepared exclusively for</p>
+        <h1 className="font-display mt-4 text-4xl font-medium text-[#3d0b26] md:text-5xl">
+          {r.name} {r.zodiac && <span className="text-3xl text-[#c9a24b]">{r.zodiac.symbol}</span>}
+        </h1>
+        <p className="mt-3 text-[13px] uppercase tracking-[0.2em] text-[#751545]/55">
+          {r.age ? `${r.age} years old` : ''}{r.age && r.zodiac ? ' · ' : ''}{r.zodiac ? `${r.zodiac.sign} · ${r.zodiac.element} sign` : ''}{' · '}{today}
+        </p>
+        <div className="gold-ring mx-auto mt-10 max-w-xl rounded-[2rem] bg-white/80 p-9">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Your archetype</p>
+          <h2 className="font-display mt-3 text-3xl font-medium text-[#751545]">{v.archetypeName}</h2>
+          {v.archetypeLine && <p className="mt-2 text-[14px] italic text-[#4a1230]/60">{v.archetypeLine}</p>}
+          <p className="font-display mt-5 text-xl font-light italic leading-relaxed text-[#3d0b26]">“{v.headline}”</p>
+        </div>
+        <div className="no-print mt-8">{downloadBtn}</div>
+      </section>
+
+      {/* ── Reading I — the letter ── */}
+      <Reading numeral="I" title={v.openingLetter ? 'A letter to you' : 'What your answers revealed'} subtitle="Read this first, slowly">
+        <Paras items={v.openingLetter ?? [v.subheadline]} />
+      </Reading>
+
+      {/* ── Reading II — the loop ── */}
+      <Reading numeral="II" title="The loop you keep running" subtitle="Your core pattern, named">
+        {v.corePattern ? <Paras items={v.corePattern} /> : (
+          <ul className="flex flex-col gap-3">
+            {v.pattern.map((p, i) => (
+              <li key={i} className="flex gap-3 text-[15.5px] leading-[1.8] text-[#4a1230]/85">
+                <span className="mt-1 shrink-0 text-[#c9a24b]">◆</span><span>{em(p)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Reading>
+
+      {/* ── Reading III — the root ── */}
+      <div className="print-break" />
+      <Reading numeral="III" title="Where it started" subtitle="The root — father, home, and the little girl's logic">
+        {v.rootCause ? <Paras items={v.rootCause} /> : <Paras items={[v.fatherWound]} />}
+      </Reading>
+
+      {/* ── Reading IV — the revelation ── */}
+      <Reading numeral="IV" title="The revelation" subtitle="Why you're still single — said plainly">
+        {v.hiddenTruth ? <Paras items={v.hiddenTruth} /> : <Paras items={[v.realReason]} />}
+      </Reading>
+
+      {/* ── her words, reflected ── */}
+      {(v.herWordsReflected || v.herWords) && (
+        <section className="print-block mx-auto max-w-3xl px-6 pt-16 md:px-0">
+          <div className="rounded-[1.8rem] bg-[#3d0b26] px-8 py-10 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">You told us</p>
+            <p className="font-display mx-auto mt-5 max-w-xl text-2xl font-light italic leading-relaxed text-[#fbf5ef]">
+              “{v.herWords ?? ''}”
+            </p>
+            <div className="mx-auto mt-6 h-px w-16 bg-[#c9a24b]/40" />
+            <div className="mx-auto mt-6 max-w-xl text-[14.5px] leading-[1.8] text-[#fbf5ef]/75">
+              <Paras items={v.herWordsReflected ?? []} />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Reading V — who to choose ── */}
+      <Reading numeral="V" title="The man who would actually work for you" subtitle="Four traits — not the one you keep choosing">
+        <ul className="flex flex-col gap-3">
+          {v.manSheNeeds.map((m, i) => (
+            <li key={i} className="flex gap-3 text-[15.5px] leading-[1.8] text-[#4a1230]/85">
+              <span className="mt-1 shrink-0 text-[#c9a24b]">◆</span><span>{em(m)}</span>
+            </li>
+          ))}
+        </ul>
+      </Reading>
+
+      {/* ── Reading VI — the 90-day path ── */}
+      <div className="print-break" />
+      <Reading numeral="VI" title="Your 90-day path" subtitle="Three named phases, from pattern to proposal">
+        {v.path.map((p, i) => (
+          <div key={i} className="rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-5">
+            <p className="font-display text-[17px] font-medium text-[#751545]">{p.title}</p>
+            <p className="mt-2 text-[15px] leading-[1.8] text-[#4a1230]/85">{em(p.text)}</p>
+          </div>
+        ))}
+      </Reading>
+
+      {/* ── closing ── */}
+      {v.closingLine && (
+        <section className="mx-auto max-w-2xl px-6 pb-6 pt-16 text-center">
+          <div className="mx-auto h-px w-16 bg-[#c9a24b]/50" />
+          <p className="font-display mt-8 text-2xl font-light italic leading-relaxed text-[#3d0b26]">“{v.closingLine}”</p>
+          <p className="mt-6 text-[12px] uppercase tracking-[0.25em] text-[#751545]/45">— Revela Institute</p>
+        </section>
+      )}
+
+      {/* ── bottom download ── */}
+      <div className="no-print mt-10 text-center">
+        {downloadBtn}
+        <p className="mt-3 text-[12px] text-[#751545]/55">In the dialog, choose “Save as PDF”.</p>
+      </div>
+
+      <footer className="mt-14 border-t border-[#751545]/10 px-6 py-8 text-center">
+        <p className="text-[11px] text-[#751545]/50">
+          © {new Date().getFullYear()} Revela Institute · Educational self-reflection content · Not medical or psychological advice
+        </p>
+      </footer>
+    </div>
+  );
+}
+
+export default function Report({ answers, deep, unlocked = false }: { answers: Answers; deep?: DeepReport | null; unlocked?: boolean }) {
   const r = buildReport(answers);
   const v = toView(r, deep ?? null);
   const { label: deadline, expired } = useDeadline();
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  if (unlocked) {
+    return <FullReport answers={answers} deep={deep ?? null} />;
+  }
 
   // one luring sentence, personalized from her answers
   const lure =

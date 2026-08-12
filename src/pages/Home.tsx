@@ -3,7 +3,7 @@ import Landing from '../components/Landing';
 import Quiz from '../components/Quiz';
 import Analyzing from '../components/Analyzing';
 import Report, { type DeepReport } from '../components/Report';
-import { ping, loadProgress, clearProgress } from '../lib/tracker';
+import { ping, loadProgress, clearProgress, saveFinished, loadFinished } from '../lib/tracker';
 import { QUESTIONS, getAge, getZodiac, type Answers } from '../lib/engine';
 import { trpc } from '@/providers/trpc';
 
@@ -22,6 +22,7 @@ export default function Home() {
   const [initialStep, setInitialStep] = useState(0);
   const [resumeAvailable, setResumeAvailable] = useState(false);
   const [deepReport, setDeepReport] = useState<DeepReport | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
   const hbRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const generateReport = trpc.report.generate.useMutation();
@@ -52,7 +53,11 @@ export default function Home() {
       },
       {
         onSuccess: (res) => {
-          if (res.ok && res.report) setDeepReport(res.report as DeepReport);
+          if (res.ok && res.report) {
+            setDeepReport(res.report as DeepReport);
+            // keep the exact AI report she was teased with, for the unlock return
+            saveFinished(finalAnswers, res.report);
+          }
         },
       },
     );
@@ -65,6 +70,18 @@ export default function Home() {
       setAnswers(saved.answers);
       setInitialStep(validStep(saved.step, saved.answers));
       setResumeAvailable(true);
+    }
+    // Stripe success redirect: ?unlocked=1 → rebuild her exact report, unblurred
+    if (new URLSearchParams(window.location.search).get('unlocked') === '1') {
+      const finished = loadFinished();
+      if (finished && Object.keys(finished.answers).length > 0) {
+        setAnswers(finished.answers);
+        if (finished.deep) setDeepReport(finished.deep as DeepReport);
+        setUnlocked(true);
+        setStage('report');
+        window.scrollTo({ top: 0 });
+        ping({ stage: 'report' });
+      }
     }
   }, []);
 
@@ -126,6 +143,7 @@ export default function Home() {
         initialStep={initialStep}
         onDone={() => {
           clearProgress();
+          saveFinished(answers);
           beginAnalysis(answers);
           go('analyzing');
         }}
@@ -145,7 +163,7 @@ export default function Home() {
     );
   }
   if (stage === 'report') {
-    return <Report answers={answers} deep={deepReport} />;
+    return <Report answers={answers} deep={deepReport} unlocked={unlocked} />;
   }
   return landing;
 }
