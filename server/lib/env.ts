@@ -12,7 +12,7 @@ export const env = {
   appId: process.env.APP_ID ?? "revela",
   appSecret: process.env.APP_SECRET ?? "revela-secret",
   isProduction: process.env.NODE_ENV === "production",
-  // SQLite file path; defaults to ./data/revela.db (data/ is the mounted disk on Render)
-  databasePath: process.env.DATABASE_PATH ?? "",
+  // Supabase Postgres connection string (transaction pooler, port 6543)
+  databaseUrl: required("DATABASE_URL"),
   port: Number(process.env.PORT ?? 3000),
 };

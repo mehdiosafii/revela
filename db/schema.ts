@@ -1,12 +1,18 @@
 import {
-  sqliteTable,
+  pgSchema,
+  serial,
   integer,
   text,
-} from "drizzle-orm/sqlite-core";
+  boolean,
+  timestamp,
+} from "drizzle-orm/pg-core";
+
+// All revela tables live in their own Postgres schema (shared Supabase project)
+export const revela = pgSchema("revela");
 
 // One row per visitor session (identified by a cookie-like client token)
-export const sessions = sqliteTable("sessions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const sessions = revela.table("sessions", {
+  id: serial("id").primaryKey(),
   token: text("token").notNull().unique(),
   ip: text("ip"),
   country: text("country"),
@@ -17,29 +23,37 @@ export const sessions = sqliteTable("sessions", {
   name: text("name"),
   email: text("email"),
   phone: text("phone"),
-  completed: integer("completed", { mode: "boolean" }).notNull().default(false),
-  finishedAt: integer("finished_at", { mode: "timestamp" }),
+  completed: boolean("completed").notNull().default(false),
+  finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
   durationMs: integer("duration_ms").notNull().default(0),
-  lastSeenAt: integer("last_seen_at", { mode: "timestamp" }).notNull().defaultNow(),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
 });
 
 // Heartbeats / transitions — powers "where did they stop" + per-section funnel
-export const events = sqliteTable("events", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const events = revela.table("events", {
+  id: serial("id").primaryKey(),
   sessionToken: text("session_token").notNull(),
   kind: text("kind").notNull(), // stage | question
   stage: text("stage"),
   questionIndex: integer("question_index"),
   questionId: text("question_id"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
 });
 
 // Answer snapshot per question (so admin can read what each visitor answered)
-export const answers = sqliteTable("answers", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const answers = revela.table("answers", {
+  id: serial("id").primaryKey(),
   sessionToken: text("session_token").notNull(),
   questionId: text("question_id").notNull(),
   value: text("value"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
 });

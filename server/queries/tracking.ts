@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { asc, desc, eq, gte, sql } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "./connection";
-import { sessions, events, answers } from "@db/schema";
+import { sessions, events, answers } from "../../db/schema";
 
 // Real, enforced daily capacity — reports are reviewed by a human team,
 // so the cap is genuinely small, and this counter is read straight from the DB.
