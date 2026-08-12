@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { trpc } from '@/providers/trpc';
+import { useResetCountdown } from './Landing';
 
 interface Props {
   name: string;
@@ -83,6 +85,11 @@ export default function Analyzing({ name, onDone, generating = false }: Props) {
     distance: 150 + (i % 4) * 28,
   }));
 
+  // live daily scarcity — same real numbers as everywhere else
+  const spotsQ = trpc.public.spotsLeft.useQuery(undefined, { refetchInterval: 30000, retry: false });
+  const spots = spotsQ.data ?? null;
+  const resetLabel = useResetCountdown(spots?.resetAt);
+
   return (
     <div
       className={`relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#2a0718] px-6 text-center text-[#fbf5ef] transition-all duration-1000 ${
@@ -164,7 +171,7 @@ export default function Analyzing({ name, onDone, generating = false }: Props) {
 
       {/* final glow message */}
       {finalGlow && (
-        <p className="animate-rise-in font-display absolute bottom-24 text-lg italic text-[#edc840]">
+        <p className="animate-rise-in font-display absolute bottom-28 text-lg italic text-[#edc840]">
           Your revelation is ready.
         </p>
       )}
@@ -172,6 +179,17 @@ export default function Analyzing({ name, onDone, generating = false }: Props) {
       <p className="absolute bottom-8 max-w-sm text-[11px] leading-relaxed text-[#fbf5ef]/35">
         Your answers are encrypted and analyzed privately. Nothing is shared. Nothing is stored without your consent.
       </p>
+
+      {spots && spots.left > 0 && (
+        <p className="absolute bottom-16 text-[11.5px] font-medium tracking-wide text-[#fbf5ef]/60">
+          Only <span className="font-semibold text-[#edc840]">{spots.left} spots left today</span>
+          {resetLabel && (
+            <>
+              {' '}· new spots in <span className="font-semibold tabular-nums text-[#edc840]">{resetLabel}</span>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

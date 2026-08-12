@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { QUESTIONS, ENCOURAGEMENTS, getZodiac, type Answers, type Question } from '../lib/engine';
 import { ping, trackAnswer, saveProgress } from '../lib/tracker';
 import { trpc } from '@/providers/trpc';
+import { useResetCountdown } from './Landing';
 import SocialProof from './SocialProof';
 import ZodiacBadge from './ZodiacBadge';
 
@@ -42,6 +43,11 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
   const answeredCount = Object.keys(answers).length;
   const progress = Math.round(((step + 1) / total) * 100);
   const name = answers.name || 'beautiful';
+
+  // real daily scarcity — same live numbers as the landing page
+  const spotsQ = trpc.public.spotsLeft.useQuery(undefined, { refetchInterval: 30000, retry: false });
+  const spots = spotsQ.data ?? null;
+  const resetLabel = useResetCountdown(spots?.resetAt);
 
   // ── AI revelation after the first 5 real answers (identity excluded) ──
   // Prefetch as soon as all five are in (usually while she reads question 5's
@@ -155,6 +161,18 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
             style={{ width: `${progress}%` }}
           />
         </div>
+        {spots && spots.left > 0 && (
+          <div className="bg-[#3d0b26] px-4 py-1.5 text-center">
+            <p className="text-[11px] font-medium tracking-wide text-[#fbf5ef]/90">
+              Only <span className="font-semibold text-[#edc840]">{spots.left} spots left today</span>
+              {resetLabel && (
+                <span className="text-[#fbf5ef]/70">
+                  {' '}· new spots in <span className="font-semibold tabular-nums text-[#edc840]">{resetLabel}</span>
+                </span>
+              )}
+            </p>
+          </div>
+        )}
       </header>
 
       {/* question body */}

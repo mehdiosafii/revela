@@ -48,14 +48,43 @@ function useSpotsLeft() {
   return q.data ?? null;
 }
 
+/* live countdown to midnight UTC, when the day's spots reset */
+export function useResetCountdown(resetAt: number | null | undefined): string | null {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    if (!resetAt) return;
+    const tick = () => {
+      const ms = resetAt - Date.now();
+      if (ms <= 0) {
+        setLabel('00h 00m 00s');
+        return;
+      }
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setLabel(`${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [resetAt]);
+  return label;
+}
+
 function ScarcityBar() {
   const spots = useSpotsLeft();
+  const reset = useResetCountdown(spots?.resetAt);
   if (!spots || spots.left <= 0) return null;
   return (
     <div className="fixed inset-x-0 top-0 z-[60] bg-[#3d0b26] px-4 py-2 text-center">
       <p className="text-[11.5px] font-medium tracking-wide text-[#fbf5ef]/90">
-        <span className="font-semibold text-[#edc840]">{spots.left} of {spots.cap} report slots left today</span>
-        <span className="hidden sm:inline text-[#fbf5ef]/50"> — we cap daily reports so every one gets a real review</span>
+        Only <span className="font-semibold text-[#edc840]">{spots.left} report spots left today</span>
+        {reset && (
+          <span className="text-[#fbf5ef]/70">
+            {' '}· new spots in <span className="font-semibold tabular-nums text-[#edc840]">{reset}</span>
+          </span>
+        )}
+        <span className="hidden text-[#fbf5ef]/50 sm:inline"> — every report gets a real review</span>
       </p>
     </div>
   );
@@ -182,6 +211,7 @@ export default function Landing({
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const spots = useSpotsLeft();
+  const reset = useResetCountdown(spots?.resetAt);
 
   return (
     <div className="bg-grain min-h-screen pb-20 md:pb-0">
@@ -552,7 +582,9 @@ export default function Landing({
           <CTAButton onStart={onStart} resume={resume} onRestart={onRestart}
             sub={
               spots
-                ? `${spots.left} of ${spots.cap} slots left today · report appears instantly after question 21`
+                ? reset
+                  ? `Only ${spots.left} report spots left today — new spots in ${reset} · your report appears instantly after question 21`
+                  : `Only ${spots.left} report spots left today · your report appears instantly after question 21`
                 : 'Your report appears instantly after question 21'
             }>
             Show Me My Pattern — Free

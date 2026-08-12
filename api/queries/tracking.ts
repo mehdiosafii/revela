@@ -6,8 +6,8 @@ import { getDb } from "./connection";
 import { sessions, events, answers } from "@db/schema";
 
 // Real, enforced daily capacity — reports are reviewed by a human team,
-// so the cap is genuine, and this counter is read straight from the DB.
-const DAILY_REPORT_CAP = 300;
+// so the cap is genuinely small, and this counter is read straight from the DB.
+const DAILY_REPORT_CAP = 25;
 // Finisher pricing is a real, server-stored 12-hour window per visitor.
 const FINISHER_WINDOW_MS = 12 * 3600 * 1000;
 
@@ -180,7 +180,14 @@ export const publicRouter = createRouter({
       .from(sessions)
       .where(gte(sessions.createdAt, todayStart));
     const used = Number(row?.n ?? 0);
-    return { cap: DAILY_REPORT_CAP, used, left: Math.max(0, DAILY_REPORT_CAP - used) };
+    const resetAt = new Date(todayStart);
+    resetAt.setUTCDate(resetAt.getUTCDate() + 1);
+    return {
+      cap: DAILY_REPORT_CAP,
+      used,
+      left: Math.max(0, DAILY_REPORT_CAP - used),
+      resetAt: resetAt.getTime(),
+    };
   }),
 
   // The visitor's real finisher deadline: finishedAt + 12h, stored server-side
