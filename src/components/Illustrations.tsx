@@ -8,31 +8,13 @@ type Illus = { id: string; caption: string; image: string | null };
 
 const CACHE_KEY = 'revela_illustrations_v1';
 
-/* downscale to max 1024px JPEG before upload — keeps requests small and generation fast */
-function downscale(dataUrl: string): Promise<string> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const max = 1024;
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      if (scale === 1 && dataUrl.length < 1_500_000) return resolve(dataUrl);
-      const c = document.createElement('canvas');
-      c.width = Math.round(img.width * scale);
-      c.height = Math.round(img.height * scale);
-      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
-      resolve(c.toDataURL('image/jpeg', 0.85));
-    };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
-}
-
-
-/* Envisioned — four personalized scenes generated from her photo.
-   Runs only for unlocked reports with a photo; result cached in localStorage
-   so the API is called once per visitor. */
-export default function Illustrations({ answers }: { answers: Answers }) {
-  const [photo, setPhoto] = useState<string | null>((answers.photo as string) || null);
+/* Shared generation state: fetches the 4 personalized scenes once
+   (cached in localStorage), exposes them by id so each scene can live
+   inside the report chapter it belongs to. */
+export function useIllustrations(answers: Answers) {
+  const [photo, setPhoto] = useState<string | null>(
+    typeof answers.photo === 'string' && answers.photo.startsWith('data:image/') ? answers.photo : null,
+  );
   const [images, setImages] = useState<Illus[] | null>(() => {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
@@ -46,8 +28,8 @@ export default function Illustrations({ answers }: { answers: Answers }) {
 
   useEffect(() => {
     if (images || failed || gen.isPending) return;
-    if (!photo || !photo.startsWith('data:image/')) return;
-    downscale(photo)
+    if (!photo) return;
+    downscalePhoto(photo)
       .then((small) => gen.mutateAsync({ token: getToken(), photo: small }))
       .then((res) => {
         const ok = res.images.filter((i) => i.image);
@@ -59,77 +41,78 @@ export default function Illustrations({ answers }: { answers: Answers }) {
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify(res.images));
         } catch {
-          /* cache full — fine, images still shown this session */
+          /* cache full — still shown this session */
         }
       })
       .catch(() => setFailed(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photo, images, failed]);
 
-  if (failed && !images) return null;
+  const setFromFile = (f: File) => {
+    const reader = new FileReader();
+    reader.onload = () => downscalePhoto(String(reader.result)).then(setPhoto);
+    reader.readAsDataURL(f);
+  };
 
-  const loading = !images;
-  const shown = (images ?? []).filter((i) => i.image);
+  const byId = (id: string) => images?.find((i) => i.id === id) ?? null;
+  const loading = !!photo && !images && !failed;
 
-  return (
-    <section className="mx-auto max-w-3xl px-6 pt-20">
-      <div className="text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Reading VII</p>
-        <h2 className="font-display mt-3 text-3xl font-medium text-[#3d0b26]">See it, {answers.name || 'love'}</h2>
-        <p className="mx-auto mt-3 max-w-xl text-[14.5px] leading-relaxed text-[#4a1230]/70">
-          Four scenes from the life on the other side of the pattern — created from your photo, so the woman in them is unmistakably you.
-        </p>
+  return { photo, images, byId, loading, failed, setFromFile };
+}
+
+export type IllustrationsState = ReturnType<typeof useIllustrations>;
+
+/* One scene, embedded inside its chapter. Shows a shimmer while
+   generating; renders nothing if no photo / generation failed. */
+export function Scene({ id, state }: { id: string; state: IllustrationsState }) {
+  const item = state.byId(id);
+  if (!state.photo && !item) return null;
+  if (state.failed && !item) return null;
+  if (state.loading || !item?.image) {
+    if (!state.loading) return null;
+    return (
+      <div className="mx-auto mt-10 max-w-md animate-pulse rounded-3xl border border-[#751545]/10 bg-white/70 p-3">
+        <div className="aspect-[4/5] w-full rounded-2xl bg-gradient-to-br from-[#f3e8df] to-[#e9d9cc]" />
+        <div className="mx-auto mt-4 mb-2 h-3 w-2/3 rounded bg-[#e9d9cc]" />
       </div>
+    );
+  }
+  return (
+    <figure className="mx-auto mt-10 max-w-md rounded-3xl border border-[#751545]/10 bg-white/85 p-3 shadow-sm">
+      <img src={item.image} alt={item.caption} className="aspect-[4/5] w-full rounded-2xl object-cover" loading="lazy" />
+      <figcaption className="px-2 py-4 text-center">
+        <span className="font-display block text-[15px] italic text-[#3d0b26]">{item.caption}</span>
+        <span className="mt-1 block text-[10px] uppercase tracking-[0.15em] text-[#4a1230]/35">
+          Illustration created from your photo · not a prediction
+        </span>
+      </figcaption>
+    </figure>
+  );
+}
 
-      {!photo && !images ? (
-        <label className="group mx-auto mt-10 flex max-w-md cursor-pointer flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-[#751545]/25 bg-white/60 p-10 text-center transition-colors hover:border-[#751545]/60">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#751545]/10 to-[#c4688a]/15 text-2xl text-[#751545]/60 transition-transform group-hover:scale-110">✦</div>
-          <p className="text-[15px] font-medium text-[#3d0b26]">Add your photo to create your four scenes</p>
-          <p className="text-[12px] text-[#751545]/50">Used only for these illustrations · never stored, never published</p>
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const reader = new FileReader();
-              reader.onload = () => downscalePhoto(String(reader.result)).then(setPhoto);
-              reader.readAsDataURL(f);
-            }}
-          />
-        </label>
-      ) : loading ? (
-        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse rounded-3xl border border-[#751545]/10 bg-white/70 p-3">
-              <div className="aspect-[4/5] w-full rounded-2xl bg-gradient-to-br from-[#f3e8df] to-[#e9d9cc]" />
-              <div className="mx-auto mt-4 mb-2 h-3 w-2/3 rounded bg-[#e9d9cc]" />
-            </div>
-          ))}
+/* Shown once, early in the report, when no photo exists yet. */
+export function ScenePhotoPrompt({ state, name }: { state: IllustrationsState; name?: string }) {
+  if (state.photo || state.images) return null;
+  return (
+    <section className="mx-auto max-w-2xl px-6 pt-14">
+      <label className="group flex cursor-pointer flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-[#751545]/25 bg-white/60 p-9 text-center transition-colors hover:border-[#751545]/60">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#751545]/10 to-[#c4688a]/15 text-2xl text-[#751545]/60 transition-transform group-hover:scale-110">
+          ✦
         </div>
-      ) : (
-        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
-          {shown.map((img) => (
-            <figure key={img.id} className="rounded-3xl border border-[#751545]/10 bg-white/85 p-3 shadow-sm">
-              <img
-                src={img.image!}
-                alt={img.caption}
-                className="aspect-[4/5] w-full rounded-2xl object-cover"
-                loading="lazy"
-              />
-              <figcaption className="px-2 py-4 text-center font-display text-[15px] italic text-[#3d0b26]">
-                {img.caption}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      )}
-
-      <p className="mt-6 text-center text-[11px] leading-relaxed text-[#4a1230]/45">
-        Artistic illustrations created from your photo to help you visualize the path — not photographs, promises, or predictions.
-        Your photo is used only for this and is never stored.
-      </p>
+        <p className="text-[15px] font-medium text-[#3d0b26]">
+          {name ? `${name}, add` : 'Add'} a photo of yourself to see four scenes from the life past the pattern — woven through your reading
+        </p>
+        <p className="text-[12px] text-[#751545]/50">Used only for these illustrations · never stored, never published</p>
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) state.setFromFile(f);
+          }}
+        />
+      </label>
     </section>
   );
 }

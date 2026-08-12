@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { buildReport, type Answers, type Report as BuiltInReport } from '../lib/engine';
 import { STRIPE_PAYMENT_LINK, UNLOCK_PRICE, UNLOCK_PRICE_ANCHOR } from '../lib/config';
-import Illustrations from './Illustrations';
+import { useIllustrations, Scene, ScenePhotoPrompt } from './Illustrations';
 import { REVIEWS } from '../lib/engine';
 import { trpc } from '@/providers/trpc';
 import { getToken } from '../lib/tracker';
@@ -19,6 +19,11 @@ export interface DeepReport {
   herWordsReflected: string;
   manSheNeeds: string[];
   ninetyDayPath: { title: string; text: string }[];
+  fieldGuide?: {
+    scripts: { situation: string; sayThis: string; notThis: string }[];
+    greenFlags: string[];
+    redFlags: string[];
+  } | null;
   closingLine: string;
 }
 
@@ -236,6 +241,7 @@ function Paras({ items }: { items: string[] }) {
 
 /* ── the UNLOCKED full report: everything, unblurred, printable as PDF ── */
 function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | null }) {
+  const illus = useIllustrations(answers);
   const r = buildReport(answers);
   const v = toView(r, deep);
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -296,6 +302,8 @@ function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | nu
         <Paras items={v.openingLetter ?? [v.subheadline]} />
       </Reading>
 
+      <ScenePhotoPrompt state={illus} name={answers.name} />
+
       {/* ── Reading II — the loop ── */}
       <Reading numeral="II" title="The loop you keep running" subtitle="Your core pattern, named">
         {v.corePattern ? <Paras items={v.corePattern} /> : (
@@ -314,6 +322,8 @@ function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | nu
       <Reading numeral="III" title="Where it started" subtitle="The root — father, home, and the little girl's logic">
         {v.rootCause ? <Paras items={v.rootCause} /> : <Paras items={[v.fatherWound]} />}
       </Reading>
+
+      <Scene id="parents" state={illus} />
 
       {/* ── Reading IV — the revelation ── */}
       <Reading numeral="IV" title="The revelation" subtitle="Why you're still single — said plainly">
@@ -336,6 +346,8 @@ function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | nu
         </section>
       )}
 
+      <Scene id="peace" state={illus} />
+
       {/* ── Reading V — who to choose ── */}
       <Reading numeral="V" title="The man who would actually work for you" subtitle="Four traits — not the one you keep choosing">
         <ul className="flex flex-col gap-3">
@@ -346,6 +358,43 @@ function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | nu
           ))}
         </ul>
       </Reading>
+
+      {/* ── field guide — scripts + flags (deep only) ── */}
+      {deep?.fieldGuide && (
+        <Reading numeral="V½" title="Your field guide" subtitle="Exact words for the moments your pattern takes over">
+          {deep.fieldGuide.scripts.map((sc, i) => (
+            <div key={i} className="mt-6 rounded-2xl border border-[#751545]/10 bg-white/80 p-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#c4688a]">{sc.situation}</p>
+              <p className="mt-3 text-[15px] leading-relaxed text-[#3d0b26]"><span className="font-semibold text-[#1d7a4f]">Say this:</span> “{sc.sayThis}”</p>
+              {sc.notThis && <p className="mt-2 text-[14px] leading-relaxed text-[#4a1230]/70"><span className="font-semibold text-[#9c2b2b]">Not this:</span> {sc.notThis}</p>}
+            </div>
+          ))}
+          {(deep.fieldGuide.greenFlags.length > 0 || deep.fieldGuide.redFlags.length > 0) && (
+            <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+              {deep.fieldGuide.greenFlags.length > 0 && (
+                <div className="rounded-2xl border border-[#1d7a4f]/20 bg-[#f2f9f4] p-6">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#1d7a4f]">Green flags — for you specifically</p>
+                  <ul className="mt-4 space-y-3">
+                    {deep.fieldGuide.greenFlags.map((f, i) => (
+                      <li key={i} className="text-[14px] leading-relaxed text-[#2a4a38]">✓ {f}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {deep.fieldGuide.redFlags.length > 0 && (
+                <div className="rounded-2xl border border-[#9c2b2b]/20 bg-[#faf2f2] p-6">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9c2b2b]">Red flags — your type, early</p>
+                  <ul className="mt-4 space-y-3">
+                    {deep.fieldGuide.redFlags.map((f, i) => (
+                      <li key={i} className="text-[14px] leading-relaxed text-[#4a2a2a]">✗ {f}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </Reading>
+      )}
 
       {/* ── Reading VI — the 90-day path ── */}
       <div className="print-break" />
@@ -358,6 +407,8 @@ function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | nu
         ))}
       </Reading>
 
+      <Scene id="children" state={illus} />
+
       {/* ── closing ── */}
       {v.closingLine && (
         <section className="mx-auto max-w-2xl px-6 pb-6 pt-16 text-center">
@@ -367,14 +418,24 @@ function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | nu
         </section>
       )}
 
-      {/* ── Reading VII — envisioned (personalized illustrations) ── */}
-      <Illustrations answers={answers} />
+      <Scene id="married" state={illus} />
 
-      {/* ── bottom download ── */}
-      <div className="no-print mt-10 text-center">
-        {downloadBtn}
-        <p className="mt-3 text-[12px] text-[#751545]/55">In the dialog, choose “Save as PDF”.</p>
-      </div>
+      {/* ── what to do now ── */}
+      <section className="no-print mx-auto mt-12 max-w-2xl px-6">
+        <div className="gold-ring rounded-3xl bg-white/90 p-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">What to do now</p>
+          <ol className="mt-5 space-y-4 text-[15px] leading-relaxed text-[#4a1230]/85">
+            <li><span className="font-semibold text-[#3d0b26]">1 · Within 48 hours:</span> do the first move in Weeks 1–2 above — the pattern loosens fastest right after you’ve seen it clearly.</li>
+            <li><span className="font-semibold text-[#3d0b26]">2 · Save your report:</span> download it now — re-read the field guide before every first date, and the root chapter on the hard days.</li>
+            <li><span className="font-semibold text-[#3d0b26]">3 · Mark day 90:</span> put a note in your calendar three months from today — come back and read this again from the other side.</li>
+          </ol>
+          <div className="mt-7 text-center">
+            {downloadBtn}
+            <p className="mt-3 text-[12px] text-[#751545]/55">In the dialog, choose “Save as PDF”.</p>
+            <p className="mt-5 text-[12px] leading-relaxed text-[#4a1230]/55">Stuck, or something didn’t land? Email <a className="underline" href="mailto:support@revela.love">support@revela.love</a> — a real person replies within 2 business days.</p>
+          </div>
+        </div>
+      </section>
 
       <footer className="mt-14 border-t border-[#751545]/10 px-6 py-8 text-center">
         <p className="text-[11px] text-[#751545]/50">
@@ -650,7 +711,7 @@ export default function Report({ answers, deep, unlocked = false }: { answers: A
               </p>
             )}
             <div className="mt-8">
-              <UnlockButton sub={`${unlockSub} · a copy is also sent to ${answers.email || 'your inbox'}`} />
+              <UnlockButton sub={unlockSub} />
             </div>
           </Reveal>
         </div>
