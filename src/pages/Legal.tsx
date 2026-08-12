@@ -29,7 +29,7 @@ const UPDATED = 'August 12, 2026';
 export function Privacy() {
   return (
     <Shell title="Privacy Policy" updated={UPDATED}>
-      <p>Revela Institute (“Revela”, “we”, “us”) respects your privacy. This policy explains what we collect, why, and the choices you have. Questions: <a className="text-[#751545] underline" href="mailto:privacy@revela.institute">privacy@revela.institute</a>.</p>
+      <p>Revela, a brand operated by Foorsa LLC (“Revela”, “we”, “us”), respects your privacy. This policy explains what we collect, why, and the choices you have. Questions: <a className="text-[#751545] underline" href="mailto:privacy@revela.love">privacy@revela.love</a>.</p>
 
       <section><H>What we collect</H>
         <ul className="mt-3 list-disc space-y-1.5 pl-5">
@@ -57,7 +57,7 @@ export function Privacy() {
       </section>
 
       <section><H>Your rights</H>
-        <p className="mt-3">You may request a copy, correction, or deletion of your data at any time by emailing <a className="text-[#751545] underline" href="mailto:privacy@revela.institute">privacy@revela.institute</a>. Deletion requests are honored within 30 days.</p>
+        <p className="mt-3">You may request a copy, correction, or deletion of your data at any time by emailing <a className="text-[#751545] underline" href="mailto:privacy@revela.love">privacy@revela.love</a>. Deletion requests are honored within 30 days.</p>
       </section>
 
       <section><H>Cookies</H>
@@ -74,7 +74,7 @@ export function Privacy() {
 export function Terms() {
   return (
     <Shell title="Terms of Service" updated={UPDATED}>
-      <p>By using Revela you agree to these terms. If you do not agree, please do not use the service.</p>
+      <p>By using Revela you agree to these terms. If you do not agree, please do not use the service. Revela is a brand operated by Foorsa LLC ("we", "us").</p>
 
       <section><H>What Revela is</H>
         <p className="mt-3">Revela is an educational self-reflection tool. The assessment and reports are informed by published relationship and attachment research and are intended to prompt insight and reflection.</p>
@@ -109,7 +109,7 @@ export function Refund() {
       <p>We want you to feel safe trying the Revela Blueprint.</p>
 
       <section><H>30-day money-back guarantee</H>
-        <p className="mt-3">If you purchase the Revela Blueprint and it isn’t right for you, email <a className="text-[#751545] underline" href="mailto:support@revela.institute">support@revela.institute</a> within 30 days of purchase with the email you used at checkout, and we will issue a full refund. No questions asked, no forms.</p>
+        <p className="mt-3">If you purchase the Revela Blueprint and it isn’t right for you, email <a className="text-[#751545] underline" href="mailto:support@revela.love">support@revela.love</a> within 30 days of purchase with the email you used at checkout, and we will issue a full refund. No questions asked, no forms.</p>
       </section>
 
       <section><H>Processing time</H>
@@ -128,13 +128,13 @@ export function Contact() {
     <Shell title="Contact Us" updated={UPDATED}>
       <p>We read every message.</p>
       <section><H>Support & refunds</H>
-        <p className="mt-3"><a className="text-[#751545] underline" href="mailto:support@revela.institute">support@revela.institute</a> — we reply within 2 business days.</p>
+        <p className="mt-3"><a className="text-[#751545] underline" href="mailto:support@revela.love">support@revela.love</a> — we reply within 2 business days.</p>
       </section>
       <section><H>Privacy requests</H>
-        <p className="mt-3"><a className="text-[#751545] underline" href="mailto:privacy@revela.institute">privacy@revela.institute</a> — data access, correction, and deletion.</p>
+        <p className="mt-3"><a className="text-[#751545] underline" href="mailto:privacy@revela.love">privacy@revela.love</a> — data access, correction, and deletion.</p>
       </section>
       <section><H>Business</H>
-        <p className="mt-3">Revela Institute · [Add your registered business address here before publishing]</p>
+        <p className="mt-3">Revela · operated by Foorsa LLC</p>
       </section>
     </Shell>
   );

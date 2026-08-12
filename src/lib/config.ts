@@ -8,12 +8,12 @@
 export const STRIPE_PAYMENT_LINK = 'https://pay.foorsa.ma/b/28EbJ1170ayH8lq56sdfG06';
 
 // The unlock price shown across the report page.
-export const UNLOCK_PRICE = '$9.99';
+export const UNLOCK_PRICE = '$9.99 USD';
 export const UNLOCK_PRICE_ANCHOR = '$49.99';
 
 // 2. Support contact — shown in footer, Terms, Privacy and Refund policy.
 //    Stripe & ad platforms require a working contact channel.
-export const SUPPORT_EMAIL = 'support@revela.institute';
+export const SUPPORT_EMAIL = 'support@revela.love';
 
 // 3. Legal entity name shown in the policies.
 export const LEGAL_ENTITY = 'Revela Institute';

@@ -630,7 +630,7 @@ export default function Landing({
             licensed therapy. Individual experiences vary. Your data is encrypted and never sold.
           </p>
           <p className="text-[11px] text-[#4a1230]/40">
-            © 2026 Revela Institute · {SUPPORT_EMAIL} · All rights reserved.
+            © 2026 Revela · operated by Foorsa LLC · {SUPPORT_EMAIL} · All rights reserved.
           </p>
         </div>
       </footer>

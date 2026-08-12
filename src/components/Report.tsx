@@ -654,7 +654,7 @@ export default function Report({ answers, deep, unlocked = false }: { answers: A
 
       <footer className="border-t border-[#751545]/10 px-6 py-8 text-center">
         <p className="text-[11.5px] leading-relaxed text-[#4a1230]/50">
-          © 2026 Revela Institute · This report is educational self-reflection content, not medical or psychological advice.
+          © 2026 Revela · operated by Foorsa LLC · This report is educational self-reflection content, not medical or psychological advice.
         </p>
       </footer>
 

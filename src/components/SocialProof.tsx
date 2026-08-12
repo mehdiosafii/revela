@@ -78,7 +78,7 @@ export default function SocialProof({ active }: { active: boolean }) {
               <p className="truncate text-[13px] font-semibold text-[#3d0b26]">
                 {r.name} <span className="font-normal text-[#751545]/50">· {r.place}</span>
               </p>
-              <span className="shrink-0 text-[10px] uppercase tracking-wide text-[#751545]/40">{r.ago}</span>
+              
             </div>
             <Stars />
             <p className="mt-1.5 text-[12.5px] leading-snug text-[#4a1230]/85">{r.text}</p>
