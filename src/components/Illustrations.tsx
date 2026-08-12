@@ -7,6 +7,26 @@ type Illus = { id: string; caption: string; image: string | null };
 
 const CACHE_KEY = 'revela_illustrations_v1';
 
+/* downscale to max 1024px JPEG before upload — keeps requests small and generation fast */
+function downscale(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 1024;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      if (scale === 1 && dataUrl.length < 1_500_000) return resolve(dataUrl);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+
 /* Envisioned — four personalized scenes generated from her photo.
    Runs only for unlocked reports with a photo; result cached in localStorage
    so the API is called once per visitor. */
@@ -26,8 +46,8 @@ export default function Illustrations({ answers }: { answers: Answers }) {
     if (images || failed || gen.isPending) return;
     const photo = answers.photo;
     if (!photo || typeof photo !== 'string' || !photo.startsWith('data:image/')) return;
-    gen
-      .mutateAsync({ token: getToken(), photo })
+    downscale(photo)
+      .then((small) => gen.mutateAsync({ token: getToken(), photo: small }))
       .then((res) => {
         const ok = res.images.filter((i) => i.image);
         if (!ok.length) {
