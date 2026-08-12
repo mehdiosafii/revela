@@ -5,15 +5,12 @@ services:
     plan: free
     buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
-      - key: APP_ID
-        generateValue: true
-      - key: APP_SECRET
-        generateValue: true
-      - key: DATABASE_URL
-        sync: false
+      - key: DATABASE_PATH
+        value: /opt/render/project/src/data/revela.db
       - key: MOONSHOT_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY

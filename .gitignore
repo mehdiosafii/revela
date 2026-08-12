@@ -39,3 +39,6 @@ build/
 # Test coverage
 coverage/
 .nyc_output/
+
+# Local SQLite database
+/data

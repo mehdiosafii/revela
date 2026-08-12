@@ -9,8 +9,10 @@ function required(name: string): string {
 }
 
 export const env = {
-  appId: required("APP_ID"),
-  appSecret: required("APP_SECRET"),
+  appId: process.env.APP_ID ?? "revela",
+  appSecret: process.env.APP_SECRET ?? "revela-secret",
   isProduction: process.env.NODE_ENV === "production",
-  databaseUrl: required("DATABASE_URL"),
+  // SQLite file path; defaults to ./data/revela.db (data/ is the mounted disk on Render)
+  databasePath: process.env.DATABASE_PATH ?? "",
+  port: Number(process.env.PORT ?? 3000),
 };
