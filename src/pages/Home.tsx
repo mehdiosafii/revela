@@ -109,6 +109,15 @@ export default function Home() {
     go('quiz');
   };
 
+  const startWithName = (name: string) => {
+    clearProgress();
+    const a = { name };
+    setAnswers(a);
+    setInitialStep(1); // name captured on the landing hero — begin at question 2
+    setResumeAvailable(false);
+    go('quiz');
+  };
+
   const restartQuiz = () => {
     clearProgress();
     setAnswers({});
@@ -134,7 +143,7 @@ export default function Home() {
 
   const landing = useMemo(
     () => (
-      <Landing onStart={startQuiz} resume={resumeAvailable} onRestart={restartQuiz} />
+      <Landing onStart={startQuiz} onStartWithName={startWithName} resume={resumeAvailable} onRestart={restartQuiz} />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [resumeAvailable],

@@ -221,12 +221,56 @@ const FAQ = [
   },
 ];
 
+function NameCapture({
+  onStartWithName,
+  resume,
+  onStart,
+}: {
+  onStartWithName: (name: string) => void;
+  resume: boolean;
+  onStart: () => void;
+}) {
+  const [name, setName] = useState('');
+  const ready = name.trim().length >= 2;
+  const submit = () => {
+    if (ready) onStartWithName(name.trim());
+  };
+  return (
+    <div className="mx-auto mt-10 w-full max-w-md">
+      <div className="gold-ring flex items-center gap-2 rounded-full bg-white/90 p-2 shadow-lg shadow-[#751545]/5">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder="Your first name…"
+          autoComplete="given-name"
+          className="min-w-0 flex-1 bg-transparent px-5 py-3 text-[17px] text-[#3d0b26] placeholder-[#751545]/35 outline-none"
+        />
+        <button
+          onClick={submit}
+          disabled={!ready}
+          className={`btn-shine shrink-0 rounded-full px-6 py-3 text-[15px] font-semibold text-white transition-opacity ${ready ? '' : 'opacity-40'}`}
+        >
+          <span>Begin →</span>
+        </button>
+      </div>
+      {resume && (
+        <button onClick={onStart} className="mt-4 text-[13px] font-medium text-[#751545] underline underline-offset-4">
+          Or continue where you left off
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Landing({
   onStart,
+  onStartWithName,
   resume = false,
   onRestart,
 }: {
   onStart: () => void;
+  onStartWithName: (name: string) => void;
   resume?: boolean;
   onRestart?: () => void;
 }) {
@@ -259,8 +303,41 @@ export default function Landing({
         </div>
       </header>
 
-      {/* ── Hero ── */}
+      {/* ── Name-first hero ── */}
       <section className="relative flex min-h-screen flex-col items-center justify-center px-6 pt-36 pb-16 text-center">
+        <div className="animate-float-slow pointer-events-none absolute left-[10%] top-[22%] hidden text-6xl text-[#c4688a]/25 lg:block">✦</div>
+        <div className="animate-float-slow pointer-events-none absolute right-[9%] top-[34%] hidden text-5xl text-[#c9a24b]/30 lg:block" style={{ animationDelay: '-3s' }}>❋</div>
+        <Reveal>
+          <p className="mb-6 inline-block rounded-full border border-[#c9a24b]/40 bg-white/60 px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#751545]">
+            A free self-assessment for women done guessing
+          </p>
+        </Reveal>
+        <Reveal delay={120}>
+          <h1 className="font-display max-w-3xl text-[2.6rem] font-medium leading-[1.08] tracking-[-0.02em] text-[#3d0b26] md:text-6xl">
+            First — what should we <em className="font-light text-[#751545]">call you?</em>
+          </h1>
+        </Reveal>
+        <Reveal delay={240}>
+          <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-[#4a1230]/75 md:text-lg">
+            Your reading will be written for you, personally.
+          </p>
+        </Reveal>
+        <Reveal delay={360} className="w-full">
+          <NameCapture onStartWithName={onStartWithName} resume={resume} onStart={onStart} />
+        </Reveal>
+        <Reveal delay={480} className="mt-6">
+          <p className="text-[12.5px] text-[#751545]/55">Free · 21 questions · 7 minutes · your report appears instantly</p>
+        </Reveal>
+        <Reveal delay={600} className="mt-14">
+          <a href="#method" className="flex flex-col items-center gap-1 text-[12px] font-medium uppercase tracking-[0.2em] text-[#4a1230]/45 transition-colors hover:text-[#751545]">
+            <span>or see how it works</span>
+            <span className="animate-bounce text-lg">↓</span>
+          </a>
+        </Reveal>
+      </section>
+
+      {/* ── Story hero (scrolled) ── */}
+      <section className="relative flex flex-col items-center justify-center px-6 pt-10 pb-16 text-center">
         <div className="animate-float-slow pointer-events-none absolute left-[8%] top-[18%] hidden text-6xl text-[#c4688a]/25 lg:block">✦</div>
         <div className="animate-float-slow pointer-events-none absolute right-[10%] top-[30%] hidden text-5xl text-[#c9a24b]/30 lg:block" style={{ animationDelay: '-3s' }}>❋</div>
 
