@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { buildReport, type Answers, type Report as BuiltInReport } from '../lib/engine';
 import { STRIPE_PAYMENT_LINK, UNLOCK_PRICE, UNLOCK_PRICE_ANCHOR } from '../lib/config';
 import { useIllustrations, Scene, ScenePhotoPrompt } from './Illustrations';
+import { fbTrack } from '../lib/fbpixel';
 import { REVIEWS } from '../lib/engine';
 import { trpc } from '@/providers/trpc';
 import { getToken } from '../lib/tracker';
@@ -197,6 +198,7 @@ function UnlockButton({ sub }: { sub?: string }) {
         href={STRIPE_PAYMENT_LINK}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => fbTrack('InitiateCheckout', { value: 9.99, currency: 'USD' })}
         className="btn-shine group inline-flex items-center justify-center gap-2.5 whitespace-nowrap rounded-full px-8 py-4 text-[15px] font-semibold text-white md:text-base"
       >
         <span className="flex h-5 w-5 items-center justify-center">🔓</span>

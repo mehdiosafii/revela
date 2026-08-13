@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Landing from '../components/Landing';
+import { fbTrackCustom, fbTrack, fbTrackPurchaseOnce } from '../lib/fbpixel';
 import Quiz from '../components/Quiz';
 import Analyzing from '../components/Analyzing';
 import Report, { type DeepReport } from '../components/Report';
@@ -83,6 +84,7 @@ export default function Home() {
           beginAnalysis(finished.answers);
         }
         setUnlocked(true);
+        fbTrackPurchaseOnce(9.99, 'USD');
         setStage('report');
         window.scrollTo({ top: 0 });
         ping({ stage: 'report' });
@@ -100,6 +102,7 @@ export default function Home() {
   };
 
   const startQuiz = () => {
+    fbTrackCustom('QuizStart');
     const saved = loadProgress();
     if (saved) {
       setAnswers(saved.answers);
@@ -110,6 +113,7 @@ export default function Home() {
   };
 
   const startWithName = (name: string) => {
+    fbTrackCustom('QuizStart');
     clearProgress();
     const a = { name };
     setAnswers(a);
@@ -156,6 +160,7 @@ export default function Home() {
         setAnswers={setAnswers}
         initialStep={initialStep}
         onDone={() => {
+          fbTrack('Lead');
           clearProgress();
           saveFinished(answers);
           beginAnalysis(answers);
