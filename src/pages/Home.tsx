@@ -30,12 +30,12 @@ export default function Home() {
 
   // fire Claude generation as soon as the quiz is done; report page waits for it
   const beginAnalysis = (finalAnswers: Answers) => {
-    const z = getZodiac(finalAnswers.dob);
+    const z = getZodiac(finalAnswers.zodiac_sign);
     generateReport.mutate(
       {
         name: finalAnswers.name ?? '',
         email: finalAnswers.email,
-        age: getAge(finalAnswers.dob) ?? undefined,
+        age: getAge(finalAnswers.age_range) ?? undefined,
         zodiac: z?.sign,
         single_duration: finalAnswers.single_duration,
         home_climate: finalAnswers.home_climate,

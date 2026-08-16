@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { downscalePhoto } from '../lib/photo';
-import { QUESTIONS, ENCOURAGEMENTS, getZodiac, type Answers, type Question } from '../lib/engine';
+import { QUESTIONS, ENCOURAGEMENTS, type Answers, type Question } from '../lib/engine';
 import { ping, trackAnswer, saveProgress } from '../lib/tracker';
 import { trpc } from '@/providers/trpc';
 import { useResetCountdown, SpotNumber } from './Landing';
 import SocialProof from './SocialProof';
-import ZodiacBadge from './ZodiacBadge';
 
 const FREE_CHOICE = '__free__';
 
@@ -302,9 +301,7 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
                     className="input-line"
                   />
                   {/* live zodiac reveal under the birth-date field */}
-                  {q.type === 'date' && value && getZodiac(value) && (
-                    <ZodiacBadge zodiac={getZodiac(value)!} name={answers.name} />
-                  )}
+                  
                   {/* consent note — required for ads & payment compliance */}
                   {q.type === 'email' && (
                     <p className="mt-3 max-w-md text-[11.5px] leading-relaxed text-[#751545]/45">

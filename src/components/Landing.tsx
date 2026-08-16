@@ -319,7 +319,7 @@ export default function Landing({
         </Reveal>
         <Reveal delay={240}>
           <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-[#4a1230]/75 md:text-lg">
-            Your reading will be written for you, personally.
+            The same relationship keeps happening for a reason — 21 questions reveal your pattern, free and instantly. Your reading is written personally for you.
           </p>
         </Reveal>
         <Reveal delay={360} className="w-full">

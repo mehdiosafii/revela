@@ -42,32 +42,41 @@ export const QUESTIONS: Question[] = [
     motivation: 'Beautiful. Let’s begin →',
   },
   {
-    id: 'email',
-    type: 'email',
-    chapter: 'Your private channel',
-    title: 'Where should we send your full Revela report?',
-    subtitle: 'Encrypted, private, never shared. This is between you and you.',
-    placeholder: 'you@example.com',
-    motivation: 'Safe with us. Continue →',
-  },
-  {
-    id: 'dob',
-    type: 'date',
-    chapter: 'The day it all started',
-    title: 'What is your date of birth?',
-    subtitle: 'Age shapes patterns more than most women realize.',
+    id: 'age_range',
+    type: 'qcm',
+    chapter: 'Let’s begin gently',
+    title: 'Your age?',
+    subtitle: 'Patterns evolve with every decade — your reading adjusts to yours.',
+    options: [
+      { label: '18 – 24', scores: {} },
+      { label: '25 – 34', scores: {} },
+      { label: '35 – 44', scores: {} },
+      { label: '45+', scores: {} },
+    ],
     motivation: 'Every detail matters →',
   },
   {
-    id: 'phone',
-    type: 'tel',
-    chapter: 'A direct line to you',
-    title: 'Your phone number?',
-    subtitle: 'Optional but recommended — for your private results delivery and a personal follow-up from our team.',
-    placeholder: '+1 (555) 000-0000',
-    motivation: 'Almost through the formalities →',
+    id: 'zodiac_sign',
+    type: 'qcm',
+    chapter: 'Let’s begin gently',
+    title: 'And your sign?',
+    subtitle: 'Tap yours — it flavors your reading.',
+    options: [
+      { label: '♈ Aries', scores: {} },
+      { label: '♉ Taurus', scores: {} },
+      { label: '♊ Gemini', scores: {} },
+      { label: '♋ Cancer', scores: {} },
+      { label: '♌ Leo', scores: {} },
+      { label: '♍ Virgo', scores: {} },
+      { label: '♎ Libra', scores: {} },
+      { label: '♏ Scorpio', scores: {} },
+      { label: '♐ Sagittarius', scores: {} },
+      { label: '♑ Capricorn', scores: {} },
+      { label: '♒ Aquarius', scores: {} },
+      { label: '♓ Pisces', scores: {} },
+    ],
+    motivation: 'Noted ✨ →',
   },
-
 
   // — Q5: first real question —
   {
@@ -268,6 +277,15 @@ export const QUESTIONS: Question[] = [
     motivation: 'Last step. You did it →',
   },
   {
+    id: 'email',
+    type: 'email',
+    chapter: 'One last thing',
+    title: 'Where should we send your reading?',
+    subtitle: 'It appears on screen instantly — this is your saved copy and your way back to it.',
+    placeholder: 'you@example.com',
+    motivation: 'Your reading is being prepared →',
+  },
+  {
     id: 'readiness',
     type: 'qcm',
     chapter: 'One last thing',
@@ -336,29 +354,23 @@ const ZODIACS: ZEntry[] = [
     lines: [[0, 1], [1, 2], [2, 3], [3, 4], [2, 5], [5, 6], [5, 7]] },
 ];
 
-export function getZodiac(dob: string): Zodiac | null {
-  if (!dob) return null;
-  const d = new Date(dob);
-  if (isNaN(d.getTime())) return null;
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
+export function getZodiac(sign: string): Zodiac | null {
+  if (!sign) return null;
+  const clean = sign.replace(/^[^A-Za-z]*/, '').trim().toLowerCase();
   for (const { from, to, ...rest } of ZODIACS) {
-    if (from[0] === to[0]) {
-      if (m === from[0] && day >= from[1] && day <= to[1]) return rest;
-    } else if ((m === from[0] && day >= from[1]) || (m === to[0] && day <= to[1])) {
-      return rest;
-    }
+    if (rest.sign.toLowerCase() === clean) return rest;
   }
   return null;
 }
 
-export function getAge(dob: string): number | null {
-  const d = new Date(dob);
-  if (isNaN(d.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - d.getFullYear();
-  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--;
-  return age > 0 && age < 120 ? age : null;
+export function getAge(range: string): number | null {
+  const map: Record<string, number> = {
+    '18 – 24': 21,
+    '25 – 34': 29,
+    '35 – 44': 39,
+    '45+': 50,
+  };
+  return map[range] ?? null;
 }
 
 // ── Scoring ─────────────────────────────────────────────────
@@ -514,8 +526,8 @@ const MAN_NEEDS: Record<Attachment, string[]> = {
 
 export function buildReport(answers: Answers): Report {
   const name = answers.name || 'Beautiful stranger';
-  const zodiac = getZodiac(answers.dob);
-  const age = getAge(answers.dob);
+  const zodiac = getZodiac(answers.zodiac_sign);
+  const age = getAge(answers.age_range);
   const { style } = scoreAnswers(answers);
   const meta = STYLE_META[style];
 
