@@ -10,6 +10,8 @@ import { sessions, events, answers } from "../../db/schema";
 const DAILY_REPORT_CAP = 25;
 // Finisher pricing is a real, server-stored 12-hour window per visitor.
 const FINISHER_WINDOW_MS = 12 * 3600 * 1000;
+const MAX_PHOTO_DATA_URL_LENGTH = 1_200_000;
+const PHOTO_DATA_URL = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/;
 
 // ── Admin password gate (server-enforced) ──────────────────
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "2026";
@@ -138,11 +140,36 @@ export const trackRouter = createRouter({
       z.object({
         token: z.string().min(8).max(64),
         questionId: z.string().min(1).max(64),
-        value: z.string().max(4000),
+        value: z.string().max(MAX_PHOTO_DATA_URL_LENGTH),
+      }).superRefine((input, ctx) => {
+        if (input.questionId === "photo") {
+          if (input.value && !PHOTO_DATA_URL.test(input.value)) {
+            ctx.addIssue({ code: "custom", path: ["value"], message: "Invalid photo data" });
+          }
+          return;
+        }
+        if (input.value.length > 4000) {
+          ctx.addIssue({
+            code: "too_big",
+            maximum: 4000,
+            origin: "string",
+            inclusive: true,
+            path: ["value"],
+            message: "Answer is too long",
+          });
+        }
       }),
     )
     .mutation(async ({ input }) => {
       const db = getDb();
+      const [session] = await db
+        .select({ token: sessions.token })
+        .from(sessions)
+        .where(eq(sessions.token, input.token))
+        .limit(1);
+      if (!session) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown session" });
+      }
       const [prev] = await db
         .select()
         .from(answers)

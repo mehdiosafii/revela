@@ -5,6 +5,8 @@
 const TOKEN_KEY = 'revela_token';
 const START_KEY = 'revela_started_at';
 const PROGRESS_KEY = 'revela_progress';
+const MAX_STORED_PHOTO_LENGTH = 1_200_000;
+const PHOTO_DATA_URL = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/;
 
 export interface SavedProgress {
   step: number;
@@ -106,11 +108,13 @@ interface PingPayload {
 
 async function post(path: string, body: unknown) {
   try {
+    const payload = JSON.stringify({ json: body });
     await fetch(path, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ json: body }),
-      keepalive: true,
+      body: payload,
+      // Browsers cap keepalive bodies at roughly 64KB, below most uploaded photos.
+      keepalive: payload.length < 60_000,
     });
   } catch {
     /* tracking must never break the experience */
@@ -126,7 +130,8 @@ export function ping(payload: PingPayload) {
 }
 
 export function trackAnswer(questionId: string, value: string) {
-  // never upload photos — only note that one was added
-  const safe = questionId === 'photo' ? (value ? '[photo added]' : '') : value.slice(0, 2000);
+  const safe = questionId === 'photo'
+    ? value.length <= MAX_STORED_PHOTO_LENGTH && PHOTO_DATA_URL.test(value) ? value : ''
+    : value.slice(0, 2000);
   void post('/api/trpc/track.answer', { token: getToken(), questionId, value: safe });
 }
