@@ -273,7 +273,7 @@ export const QUESTIONS: Question[] = [
     type: 'photo',
     chapter: 'Final touch',
     title: 'Add a photo of yourself',
-    subtitle: 'Private and encrypted — it helps our team (and your coach) put a face to your story. You may skip, but 94% of women add one.',
+    subtitle: 'Optional and private — stored with your session so authorized Revela admins can view it. It is never published.',
     motivation: 'Last step. You did it →',
   },
   {

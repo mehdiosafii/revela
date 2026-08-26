@@ -355,7 +355,7 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
                           ✦
                         </div>
                         <p className="text-[15px] font-medium text-[#3d0b26]">Tap to upload your photo</p>
-                        <p className="text-[12px] text-[#751545]/50">JPG or PNG · used only to create the personalized illustrations in your report · never published, never stored</p>
+                        <p className="text-[12px] text-[#751545]/50">JPG or PNG · stored privately with your session · visible only to authorized admins · never published</p>
                       </>
                     )}
                     <input

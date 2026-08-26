@@ -29930,6 +29930,8 @@ function getDb() {
 // server/queries/tracking.ts
 var DAILY_REPORT_CAP = 25;
 var FINISHER_WINDOW_MS = 12 * 3600 * 1e3;
+var MAX_PHOTO_DATA_URL_LENGTH = 12e5;
+var PHOTO_DATA_URL = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/;
 var ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "2026";
 function assertAdmin(password) {
   if (password !== ADMIN_PASSWORD) {
@@ -30033,10 +30035,31 @@ var trackRouter = createRouter({
     external_exports.object({
       token: external_exports.string().min(8).max(64),
       questionId: external_exports.string().min(1).max(64),
-      value: external_exports.string().max(4e3)
+      value: external_exports.string().max(MAX_PHOTO_DATA_URL_LENGTH)
+    }).superRefine((input, ctx) => {
+      if (input.questionId === "photo") {
+        if (input.value && !PHOTO_DATA_URL.test(input.value)) {
+          ctx.addIssue({ code: "custom", path: ["value"], message: "Invalid photo data" });
+        }
+        return;
+      }
+      if (input.value.length > 4e3) {
+        ctx.addIssue({
+          code: "too_big",
+          maximum: 4e3,
+          origin: "string",
+          inclusive: true,
+          path: ["value"],
+          message: "Answer is too long"
+        });
+      }
     })
   ).mutation(async ({ input }) => {
     const db = getDb();
+    const [session] = await db.select({ token: sessions.token }).from(sessions).where(eq(sessions.token, input.token)).limit(1);
+    if (!session) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown session" });
+    }
     const [prev] = await db.select().from(answers).where(eq(answers.sessionToken, input.token)).orderBy(desc(answers.id));
     const dupes = await db.select().from(answers).where(eq(answers.sessionToken, input.token));
     const dupe = dupes.find((d) => d.questionId === input.questionId);

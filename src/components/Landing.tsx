@@ -213,7 +213,7 @@ const FAQ = [
   },
   {
     q: 'Are my answers private?',
-    a: 'Yes. Your answers are encrypted, never sold, and never shared. Your photo (optional) is used only to create the illustrations in your report — never stored, never published. You can request full deletion anytime via our privacy page.',
+    a: 'Yes. Your answers are never sold or shared with advertisers. Your optional photo is stored privately with your session so authorized Revela team members can view it and create your illustrations. It is never published, and you can request deletion anytime via our privacy page.',
   },
   {
     q: 'What if the report doesn’t resonate with me?',

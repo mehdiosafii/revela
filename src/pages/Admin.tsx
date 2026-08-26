@@ -29,6 +29,7 @@ import { QUESTIONS } from "../lib/engine";
 
 const STAGES = ["landing", "quiz", "analyzing", "report"] as const;
 type Stage = (typeof STAGES)[number];
+const STORED_PHOTO_DATA_URL = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/;
 
 const STAGE_META: Record<
   Stage,
@@ -236,9 +237,20 @@ function SessionDrawer({
 }) {
   const detail = trpc.admin.sessionDetail.useQuery(
     { token, password },
-    { refetchInterval: 8000, retry: false }
+    { retry: false }
   );
   const session = detail.data?.session;
+  const storedPhotoValue = detail.data?.answers.find(
+    answer =>
+      answer.questionId === "photo" &&
+      typeof answer.value === "string" &&
+      STORED_PHOTO_DATA_URL.test(answer.value)
+  )?.value;
+  const hasLegacyPhoto = detail.data?.answers.some(
+    answer => answer.questionId === "photo" && answer.value === "[photo added]"
+  );
+  const textAnswers =
+    detail.data?.answers.filter(answer => answer.questionId !== "photo") ?? [];
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -299,7 +311,7 @@ function SessionDrawer({
                 Visitor details unavailable
               </p>
               <p className="mt-1 max-w-xs text-xs leading-5 text-[#95838d]">
-                The dashboard will retry automatically in a few seconds.
+                Close this panel and try opening the visitor again.
               </p>
             </div>
           ) : (
@@ -343,6 +355,48 @@ function SessionDrawer({
                   </div>
                 </div>
               </div>
+
+              {storedPhotoValue ? (
+                <div className="mt-6 overflow-hidden rounded-2xl border border-[#e9ded9] bg-white">
+                  <div className="flex items-center justify-between gap-3 px-5 py-4">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#b55576]">
+                        Uploaded photo
+                      </p>
+                      <p className="mt-1 text-xs text-[#8d7884]">
+                        Private · visible to authorized admins only
+                      </p>
+                    </div>
+                    <a
+                      href={storedPhotoValue}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#f7eef1] px-3 py-2 text-xs font-semibold text-[#a84f6e] transition hover:bg-[#f1e2e7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b95879]/30"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Full size
+                    </a>
+                  </div>
+                  <div className="border-t border-[#eee5e1] bg-[#f5efec] p-3">
+                    <img
+                      src={storedPhotoValue}
+                      alt={`${session.name || "Visitor"}'s uploaded photo`}
+                      className="mx-auto max-h-[520px] w-full rounded-xl object-contain shadow-sm"
+                    />
+                  </div>
+                </div>
+              ) : hasLegacyPhoto ? (
+                <div className="mt-6 rounded-2xl border border-[#ead8c3] bg-[#fff9ef] p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9c6a2d]">
+                    Earlier photo submission
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[#765b3b]">
+                    This visitor added a photo before private photo storage was
+                    enabled. The original image was never sent to Revela and
+                    cannot be recovered; they would need to upload it again.
+                  </p>
+                </div>
+              ) : null}
 
               <div className="mt-6 rounded-2xl border border-[#e9ded9] bg-white p-5">
                 <div className="flex items-center justify-between gap-3">
@@ -405,13 +459,13 @@ function SessionDrawer({
                 </div>
               </div>
 
-              {(detail.data?.answers.length ?? 0) > 0 ? (
+              {textAnswers.length > 0 ? (
                 <div className="mt-6 rounded-2xl border border-[#e9ded9] bg-white p-5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#b55576]">
                     Answers
                   </p>
                   <div className="mt-4 divide-y divide-[#f0e8e4]">
-                    {detail.data!.answers.map(answer => (
+                    {textAnswers.map(answer => (
                       <div
                         key={answer.id}
                         className="py-3 first:pt-0 last:pb-0"
