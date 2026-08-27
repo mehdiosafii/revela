@@ -230,6 +230,38 @@ export const publicRouter = createRouter({
 
 // ── Admin (password-protected) ─────────────────────────────
 const adminAuth = z.object({ password: z.string().max(128) });
+const adminSessionColumns = {
+  id: sessions.id,
+  token: sessions.token,
+  country: sessions.country,
+  city: sessions.city,
+  userAgent: sessions.userAgent,
+  stage: sessions.stage,
+  questionIndex: sessions.questionIndex,
+  name: sessions.name,
+  email: sessions.email,
+  phone: sessions.phone,
+  completed: sessions.completed,
+  finishedAt: sessions.finishedAt,
+  durationMs: sessions.durationMs,
+  lastSeenAt: sessions.lastSeenAt,
+  createdAt: sessions.createdAt,
+};
+
+async function runAdminQuery<T>(name: string, query: () => Promise<T>): Promise<T> {
+  const startedAt = Date.now();
+  try {
+    const result = await query();
+    console.info(`[admin.${name}] completed`, { durationMs: Date.now() - startedAt });
+    return result;
+  } catch (error) {
+    console.error(`[admin.${name}] failed`, {
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
 
 export const adminRouter = createRouter({
   check: publicQuery.input(adminAuth).query(({ input }) => {
@@ -239,65 +271,99 @@ export const adminRouter = createRouter({
 
   overview: publicQuery.input(adminAuth).query(async ({ input }) => {
     assertAdmin(input.password);
-    const db = getDb();
-    const all = await db.select().from(sessions).orderBy(desc(sessions.lastSeenAt));
+    return runAdminQuery("overview", async () => {
+      const db = getDb();
+      const stages = ["landing", "quiz", "analyzing", "report"] as const;
+      const countryName = sql<string>`coalesce(${sessions.country}, 'Unknown')`;
+      const [summaryRows, stageRows, dropRows, countryRows] = await Promise.all([
+        db
+          .select({
+            total: sql<number>`count(*)`,
+            liveNow: sql<number>`count(*) filter (where ${sessions.lastSeenAt} >= now() - interval '90 seconds')`,
+            completed: sql<number>`count(*) filter (where ${sessions.completed} = true)`,
+            avgDurationMs: sql<number>`coalesce(avg(${sessions.durationMs}), 0)`,
+          })
+          .from(sessions),
+        db
+          .select({ stage: sessions.stage, count: sql<number>`count(*)` })
+          .from(sessions)
+          .groupBy(sessions.stage),
+        db
+          .select({ questionIndex: sessions.questionIndex, count: sql<number>`count(*)` })
+          .from(sessions)
+          .where(sql`${sessions.completed} = false and ${sessions.questionIndex} >= 0`)
+          .groupBy(sessions.questionIndex),
+        db
+          .select({ country: countryName, count: sql<number>`count(*)` })
+          .from(sessions)
+          .groupBy(countryName),
+      ]);
 
-    const now = Date.now();
-    const live = all.filter((s) => now - new Date(s.lastSeenAt).getTime() < 90_000);
+      const summary = summaryRows[0];
+      const stageCounts = Object.fromEntries(stages.map((stage) => [stage, 0])) as Record<(typeof stages)[number], number>;
+      for (const row of stageRows) {
+        if (stages.includes(row.stage as (typeof stages)[number])) {
+          stageCounts[row.stage as (typeof stages)[number]] = Number(row.count);
+        }
+      }
+      const dropByIndex = Object.fromEntries(
+        dropRows.map((row) => [row.questionIndex, Number(row.count)]),
+      ) as Record<number, number>;
+      const total = Number(summary?.total ?? 0);
 
-    const stages = ["landing", "quiz", "analyzing", "report"] as const;
-    const stageCounts = Object.fromEntries(stages.map((st) => [st, all.filter((s) => s.stage === st).length]));
-
-    // drop-off per question: count sessions whose final questionIndex == i
-    const dropByIndex: Record<number, number> = {};
-    for (const s of all) {
-      if (s.completed || s.questionIndex < 0) continue;
-      dropByIndex[s.questionIndex] = (dropByIndex[s.questionIndex] ?? 0) + 1;
-    }
-
-    const countries: Record<string, number> = {};
-    for (const s of all) {
-      const c = s.country ?? "Unknown";
-      countries[c] = (countries[c] ?? 0) + 1;
-    }
-
-    return {
-      total: all.length,
-      liveNow: live.length,
-      completed: all.filter((s) => s.completed).length,
-      stageCounts,
-      dropByIndex,
-      countries: Object.entries(countries)
-        .map(([country, count]) => ({ country, count }))
-        .sort((a, b) => b.count - a.count),
-      avgDurationMs: all.length ? Math.round(all.reduce((a, s) => a + s.durationMs, 0) / all.length) : 0,
-    };
+      return {
+        total,
+        liveNow: Number(summary?.liveNow ?? 0),
+        completed: Number(summary?.completed ?? 0),
+        stageCounts,
+        dropByIndex,
+        countries: countryRows
+          .map((row) => ({ country: row.country, count: Number(row.count) }))
+          .sort((a, b) => b.count - a.count),
+        avgDurationMs: total ? Math.round(Number(summary?.avgDurationMs ?? 0)) : 0,
+      };
+    });
   }),
 
   visitors: publicQuery.input(adminAuth).query(async ({ input }) => {
     assertAdmin(input.password);
-    const db = getDb();
-    return db.select().from(sessions).orderBy(desc(sessions.lastSeenAt)).limit(500);
+    return runAdminQuery("visitors", async () => {
+      const db = getDb();
+      return db
+        .select(adminSessionColumns)
+        .from(sessions)
+        .orderBy(desc(sessions.lastSeenAt))
+        .limit(500);
+    });
   }),
 
   sessionDetail: publicQuery
     .input(z.object({ password: z.string().max(128), token: z.string().min(8).max(64) }))
     .query(async ({ input }) => {
       assertAdmin(input.password);
-      const db = getDb();
-      const [session] = await db.select().from(sessions).where(eq(sessions.token, input.token)).limit(1);
-      const evts = await db
-        .select()
-        .from(events)
-        .where(eq(events.sessionToken, input.token))
-        .orderBy(asc(events.createdAt))
-        .limit(400);
-      const ans = await db
-        .select()
-        .from(answers)
-        .where(eq(answers.sessionToken, input.token))
-        .orderBy(asc(answers.createdAt))
-        .limit(100);
-      return { session, events: evts, answers: ans };
+      return runAdminQuery("sessionDetail", async () => {
+        const db = getDb();
+        const [sessionRows, evts, ans] = await Promise.all([
+          db
+            .select(adminSessionColumns)
+            .from(sessions)
+            .where(eq(sessions.token, input.token))
+            .limit(1),
+          db
+            .select()
+            .from(events)
+            .where(eq(events.sessionToken, input.token))
+            .orderBy(asc(events.createdAt))
+            .limit(400),
+          db
+            .select()
+            .from(answers)
+            .where(eq(answers.sessionToken, input.token))
+            .orderBy(asc(answers.createdAt))
+            .limit(100),
+        ]);
+        const [session] = sessionRows;
+        return { session, events: evts, answers: ans };
+      });
     }),
 });
