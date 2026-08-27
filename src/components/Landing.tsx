@@ -168,15 +168,15 @@ const PAIN_POINTS = [
 const FAILURES = [
   {
     t: 'Dating apps',
-    d: 'They sell you access, not answers. Swiping changes who you meet — not why you choose them.',
+    d: 'They help you meet more people. They do not explain who you keep choosing.',
   },
   {
     t: 'Therapy',
-    d: 'Wonderful for healing. But 60-minute sessions drift — sometimes you need a targeted map of your romantic pattern, not open-ended exploration.',
+    d: 'It can support deep healing. Revela gives you a focused place to begin — not a replacement for therapy.',
   },
   {
     t: 'Advice from friends',
-    d: '“Just love yourself first” is not a strategy. Your friends see your highlight reel, not your attachment imprint.',
+    d: 'They know your story. They may not see the pattern underneath it.',
   },
 ];
 
@@ -225,9 +225,9 @@ const INSIDE = [
 ];
 
 const NOT_FOR = [
-  'Women looking for pickup tricks or manipulation tactics.',
-  'Women who want a horoscope to blame instead of a mirror to face.',
-  'Women who aren’t willing to answer 21 honest questions about themselves.',
+  'Pickup tricks or ways to manipulate someone.',
+  'A horoscope, diagnosis, or replacement for therapy.',
+  'Anyone unwilling to answer honestly and reflect on what may be repeating.',
 ];
 
 const FAQ = [
@@ -340,7 +340,7 @@ export default function Landing({
       </header>
 
       {/* ── Name-first hero ── */}
-      <section className="relative flex min-h-screen flex-col items-center justify-center px-6 pt-36 pb-16 text-center">
+      <section className="relative flex flex-col items-center px-5 pt-36 pb-16 text-center sm:px-6">
         <div className="animate-float-slow pointer-events-none absolute left-[10%] top-[22%] hidden text-6xl text-[#c4688a]/25 lg:block">✦</div>
         <div className="animate-float-slow pointer-events-none absolute right-[9%] top-[34%] hidden text-5xl text-[#c9a24b]/30 lg:block" style={{ animationDelay: '-3s' }}>❋</div>
         <Reveal>
@@ -364,11 +364,31 @@ export default function Landing({
         <Reveal delay={480} className="mt-6">
           <p className="text-[12.5px] text-[#751545]/55">Free · 21 questions · 7 minutes · your report appears instantly</p>
         </Reveal>
-        <Reveal delay={600} className="mt-14">
-          <a href="#method" className="flex flex-col items-center gap-1 text-[12px] font-medium uppercase tracking-[0.2em] text-[#4a1230]/45 transition-colors hover:text-[#751545]">
-            <span>or see how it works</span>
-            <span className="animate-bounce text-lg">↓</span>
-          </a>
+        <Reveal delay={600} className="mt-14 w-full max-w-5xl">
+          <div id="how-it-works" className="scroll-mt-28 rounded-[1.75rem] border border-[#751545]/10 bg-white/75 p-6 text-left shadow-[0_22px_70px_-48px_rgba(61,11,38,0.45)] sm:p-8 md:p-10">
+            <div className="text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">How it works</p>
+              <h2 className="font-display mt-3 text-2xl font-medium text-[#3d0b26] md:text-3xl">
+                From 21 questions to a clear next step.
+              </h2>
+            </div>
+            <div className="mt-7 grid gap-3 md:grid-cols-3">
+              {[
+                ['1', 'Answer', 'Share what has happened in your relationships and how you tend to respond.'],
+                ['2', 'See your pattern', 'Your report explains what may be repeating and where it may come from.'],
+                ['3', 'Move forward', 'Get a practical 90-day path with prompts and conversation tools.'],
+              ].map(([number, title, description]) => (
+                <div key={number} className="rounded-2xl bg-[#fbf5ef] p-5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#3d0b26] text-sm font-semibold text-[#edc840]">
+                    {number}
+                  </span>
+                  <h3 className="font-display mt-4 text-lg font-medium text-[#3d0b26]">{title}</h3>
+                  <p className="mt-2 text-[14px] leading-relaxed text-[#4a1230]/70">{description}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-6 text-center text-[12px] text-[#751545]/55">Free · private · no card required</p>
+          </div>
         </Reveal>
       </section>
 
@@ -577,50 +597,53 @@ export default function Landing({
       </section>
 
       {/* ── Why nothing worked / the mechanism ── */}
-      <section id="method" className="content-auto border-y border-[#751545]/10 bg-white/60 py-28">
-        <div className="mx-auto max-w-6xl px-6">
-          <Reveal className="max-w-3xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Why nothing has worked yet</p>
-            <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
-              You’ve been treating the symptom.
-              <br />
-              <em className="font-light text-[#751545]">The cause may be a script you can’t see.</em>
+      <section id="method" className="content-auto border-y border-[#751545]/10 bg-white/60 py-20 md:py-24">
+        <div className="mx-auto max-w-5xl px-5 sm:px-6">
+          <Reveal className="mx-auto max-w-3xl text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Why the same pattern keeps repeating</p>
+            <h2 className="font-display mt-4 text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
+              More dating advice may not be the answer.
+              <em className="mt-1 block font-light text-[#751545]">First, see the pattern.</em>
             </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-[16px] leading-relaxed text-[#4a1230]/70 md:text-[17px]">
+              When the same kind of relationship keeps ending the same way, the problem may not be who you meet.
+              It may be the pattern guiding who you choose and how you respond.
+            </p>
           </Reveal>
-          <div className="mt-14 grid gap-10 md:grid-cols-3">
+
+          <div className="mt-10 grid gap-3 md:grid-cols-3">
             {FAILURES.map((f, i) => (
               <Reveal key={f.t} delay={i * 120}>
-                <p className="font-display text-lg font-medium text-[#751545] line-through decoration-[#c4688a]/60 decoration-2">{f.t}</p>
-                <p className="mt-3 text-[15px] leading-relaxed text-[#4a1230]/70">{f.d}</p>
+                <div className="h-full rounded-2xl border border-[#751545]/10 bg-[#fbf5ef] p-5 md:p-6">
+                  <p className="font-display text-lg font-medium text-[#3d0b26]">{f.t}</p>
+                  <p className="mt-2 text-[14.5px] leading-relaxed text-[#4a1230]/70">{f.d}</p>
+                </div>
               </Reveal>
             ))}
           </div>
+
           <Reveal delay={150}>
-            <div className="gold-ring mt-16 rounded-[2rem] bg-[#3d0b26] p-10 text-[#fbf5ef] md:p-14">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">The Pattern Decoding Method™</p>
-              <h3 className="font-display mt-4 max-w-2xl text-2xl font-medium leading-snug md:text-4xl">
-                See the pattern clearly — and it starts to lose its power over you.
+            <p className="font-display mx-auto mt-10 max-w-3xl text-center text-xl font-light italic leading-relaxed text-[#3d0b26] md:text-2xl">
+              Revela helps you name the pattern underneath — so you can understand it before trying to change it.
+            </p>
+          </Reveal>
+
+          <Reveal delay={200}>
+            <div className="mt-10 rounded-2xl border border-[#b42318]/20 bg-[#fff4f2] p-6 sm:p-8">
+              <h3 className="font-display text-2xl font-medium text-[#b42318] md:text-3xl">
+                Revela is <em className="font-light">not</em> for everyone.
               </h3>
-              <p className="mt-6 max-w-2xl text-[15.5px] leading-relaxed text-[#fbf5ef]/75">
-                Our method is grounded in decades of attachment research (Bowlby, Ainsworth, Hazan &amp; Shaver).
-                The assessment looks at your early imprint — the father template, the childhood rule about
-                love, the reflex that fires when he pulls away — across 21 targeted questions. It’s not magic
-                and it’s not a diagnosis: it’s a structured mirror, built so the pattern you’ve been repeating
-                becomes visible enough to change.
+              <p className="mt-3 text-[15px] leading-relaxed text-[#6f1d18]">
+                Revela is for women ready to look honestly at what may be repeating. It is not:
               </p>
-              <div className="mt-8 grid gap-6 text-[14px] text-[#fbf5ef]/80 md:grid-cols-3">
-                {[
-                  ['01', 'Decode', 'The assessment maps your attachment imprint across five chapters of your life.'],
-                  ['02', 'Reveal', 'Your report names a likely pattern, traces it to its roots, and describes the kind of partner research suggests suits you.'],
-                  ['03', 'Practice', 'A self-guided 90-day path with reflection prompts and conversation scripts helps you try new moves.'],
-                ].map(([n, t, d]) => (
-                  <div key={n}>
-                    <p className="font-display text-3xl font-light text-[#c4688a]">{n}</p>
-                    <p className="font-display mt-2 text-lg font-medium">{t}</p>
-                    <p className="mt-2 leading-relaxed text-[#fbf5ef]/65">{d}</p>
-                  </div>
+              <ul className="mt-5 grid gap-3 md:grid-cols-3">
+                {NOT_FOR.map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-[14.5px] leading-relaxed text-[#6f1d18]/85">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#b42318] text-[11px] font-bold text-white">×</span>
+                    <span>{item}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           </Reveal>
         </div>
@@ -651,33 +674,6 @@ export default function Landing({
             Claim My Free Report
           </CTAButton>
         </Reveal>
-      </section>
-
-      {/* ── Disqualification ── */}
-      <section className="content-auto border-y border-[#751545]/10 bg-white/60 px-6 py-24">
-        <div className="mx-auto max-w-3xl text-center">
-          <Reveal>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Fair warning</p>
-            <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-4xl">
-              Revela is <em className="font-light text-[#751545]">not</em> for everyone.
-            </h2>
-          </Reveal>
-          <div className="mt-10 flex flex-col gap-3 text-left">
-            {NOT_FOR.map((n, i) => (
-              <Reveal key={i} delay={i * 90}>
-                <div className="flex items-start gap-4 rounded-2xl border border-[#751545]/10 bg-[#fbf5ef] p-5">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#3d0b26] text-[12px] text-[#edc840]">✕</span>
-                  <p className="text-[15px] leading-relaxed text-[#4a1230]/85">{n}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-          <Reveal delay={200}>
-            <p className="font-display mt-8 text-xl font-light italic text-[#3d0b26]">
-              It <b className="font-medium not-italic text-[#751545]">is</b> for the woman who wants an honest look at her patterns — and is ready to try something different.
-            </p>
-          </Reveal>
-        </div>
       </section>
 
       {/* ── Approach / editorial board ── */}
