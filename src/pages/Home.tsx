@@ -1,14 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Landing from '../components/Landing';
 import { fbTrackCustom, fbTrack, fbTrackPurchaseOnce } from '../lib/fbpixel';
-import Quiz from '../components/Quiz';
-import Analyzing from '../components/Analyzing';
-import Report, { type DeepReport } from '../components/Report';
+import type { DeepReport } from '../components/Report';
 import { ping, loadProgress, clearProgress, saveFinished, loadFinished } from '../lib/tracker';
 import { QUESTIONS, getAge, getZodiac, type Answers } from '../lib/engine';
 import { trpc } from '@/providers/trpc';
 
+const loadQuiz = () => import('../components/Quiz');
+const loadAnalyzing = () => import('../components/Analyzing');
+const loadReport = () => import('../components/Report');
+
+const Quiz = lazy(loadQuiz);
+const Analyzing = lazy(loadAnalyzing);
+const Report = lazy(loadReport);
+
 type Stage = 'landing' | 'quiz' | 'analyzing' | 'report';
+
+function StageFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#fbf5ef]" role="status" aria-label="Loading assessment">
+      <div className="h-8 w-8 animate-pulse rounded-full bg-[#751545]/20" />
+    </div>
+  );
+}
 
 // clamp a saved step to a valid index
 function validStep(step: number, answers: Answers): number {
@@ -17,19 +31,60 @@ function validStep(step: number, answers: Answers): number {
   return s;
 }
 
+type InitialHomeState = {
+  stage: Stage;
+  answers: Answers;
+  initialStep: number;
+  resumeAvailable: boolean;
+  deepReport: DeepReport | null;
+  unlocked: boolean;
+  needsRegeneration: boolean;
+};
+
+function readInitialHomeState(): InitialHomeState {
+  const saved = loadProgress();
+  const hasSavedProgress = Boolean(saved && Object.keys(saved.answers).length > 0);
+  const base: InitialHomeState = {
+    stage: 'landing',
+    answers: hasSavedProgress && saved ? saved.answers : {},
+    initialStep: hasSavedProgress && saved ? validStep(saved.step, saved.answers) : 0,
+    resumeAvailable: hasSavedProgress,
+    deepReport: null,
+    unlocked: false,
+    needsRegeneration: false,
+  };
+
+  if (new URLSearchParams(window.location.search).get('unlocked') !== '1') return base;
+
+  const finished = loadFinished();
+  if (!finished || Object.keys(finished.answers).length === 0) return base;
+
+  return {
+    stage: 'report',
+    answers: finished.answers,
+    initialStep: 0,
+    resumeAvailable: false,
+    deepReport: finished.deep ? (finished.deep as DeepReport) : null,
+    unlocked: true,
+    needsRegeneration: !finished.deep,
+  };
+}
+
 export default function Home() {
-  const [stage, setStage] = useState<Stage>('landing');
-  const [answers, setAnswers] = useState<Answers>({});
-  const [initialStep, setInitialStep] = useState(0);
-  const [resumeAvailable, setResumeAvailable] = useState(false);
-  const [deepReport, setDeepReport] = useState<DeepReport | null>(null);
-  const [unlocked, setUnlocked] = useState(false);
+  const [initial] = useState(readInitialHomeState);
+  const [stage, setStage] = useState<Stage>(initial.stage);
+  const [answers, setAnswers] = useState<Answers>(initial.answers);
+  const [initialStep, setInitialStep] = useState(initial.initialStep);
+  const [resumeAvailable, setResumeAvailable] = useState(initial.resumeAvailable);
+  const [deepReport, setDeepReport] = useState<DeepReport | null>(initial.deepReport);
+  const [unlocked] = useState(initial.unlocked);
   const hbRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const unlockHandledRef = useRef(false);
 
   const generateReport = trpc.report.generate.useMutation();
 
   // fire Claude generation as soon as the quiz is done; report page waits for it
-  const beginAnalysis = (finalAnswers: Answers) => {
+  const beginAnalysis = useCallback((finalAnswers: Answers) => {
     const z = getZodiac(finalAnswers.zodiac_sign);
     generateReport.mutate(
       {
@@ -62,35 +117,17 @@ export default function Home() {
         },
       },
     );
-  };
+  }, [generateReport]);
 
-  // restore saved progress on first load
+  // Handle side effects for a successful Stripe return after state was restored lazily.
   useEffect(() => {
-    const saved = loadProgress();
-    if (saved && Object.keys(saved.answers).length > 0) {
-      setAnswers(saved.answers);
-      setInitialStep(validStep(saved.step, saved.answers));
-      setResumeAvailable(true);
-    }
-    // Stripe success redirect: ?unlocked=1 → rebuild her exact report, unblurred
-    if (new URLSearchParams(window.location.search).get('unlocked') === '1') {
-      const finished = loadFinished();
-      if (finished && Object.keys(finished.answers).length > 0) {
-        setAnswers(finished.answers);
-        if (finished.deep) {
-          setDeepReport(finished.deep as DeepReport);
-        } else {
-          // a previous generation failed and null was cached — heal it now
-          beginAnalysis(finished.answers);
-        }
-        setUnlocked(true);
-        fbTrackPurchaseOnce(9.99, 'USD');
-        setStage('report');
-        window.scrollTo({ top: 0 });
-        ping({ stage: 'report' });
-      }
-    }
-  }, []);
+    if (initial.stage !== 'report' || unlockHandledRef.current) return;
+    unlockHandledRef.current = true;
+    fbTrackPurchaseOnce(9.99, 'USD');
+    window.scrollTo({ top: 0 });
+    ping({ stage: 'report' });
+    if (initial.needsRegeneration) beginAnalysis(initial.answers);
+  }, [beginAnalysis, initial]);
 
   const go = (s: Stage) => {
     setStage(s);
@@ -102,6 +139,7 @@ export default function Home() {
   };
 
   const startQuiz = () => {
+    void loadQuiz();
     fbTrackCustom('QuizStart');
     const saved = loadProgress();
     if (saved) {
@@ -113,6 +151,7 @@ export default function Home() {
   };
 
   const startWithName = (name: string) => {
+    void loadQuiz();
     fbTrackCustom('QuizStart');
     clearProgress();
     const a = { name };
@@ -123,6 +162,7 @@ export default function Home() {
   };
 
   const restartQuiz = () => {
+    void loadQuiz();
     clearProgress();
     setAnswers({});
     setInitialStep(0);
@@ -132,7 +172,7 @@ export default function Home() {
 
   // first-touch + heartbeat every 20s
   useEffect(() => {
-    ping({ stage: 'landing' });
+    ping({ stage: initial.stage });
     hbRef.current = setInterval(() => {
       setStage((cur) => {
         ping({ stage: cur });
@@ -142,8 +182,15 @@ export default function Home() {
     return () => {
       if (hbRef.current) clearInterval(hbRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initial.stage]);
+
+  // Warm the later assessment stages after the visitor has entered the quiz,
+  // keeping the landing-page download lean without adding a wait at completion.
+  useEffect(() => {
+    if (stage !== 'quiz') return;
+    void loadAnalyzing();
+    void loadReport();
+  }, [stage]);
 
   const landing = useMemo(
     () => (
@@ -155,34 +202,42 @@ export default function Home() {
 
   if (stage === 'quiz') {
     return (
-      <Quiz
-        answers={answers}
-        setAnswers={setAnswers}
-        initialStep={initialStep}
-        onDone={() => {
-          fbTrack('Lead');
-          clearProgress();
-          saveFinished(answers);
-          beginAnalysis(answers);
-          go('analyzing');
-        }}
-        onHome={() => go('landing')}
-      />
+      <Suspense fallback={<StageFallback />}>
+        <Quiz
+          answers={answers}
+          setAnswers={setAnswers}
+          initialStep={initialStep}
+          onDone={() => {
+            fbTrack('Lead');
+            clearProgress();
+            saveFinished(answers);
+            beginAnalysis(answers);
+            go('analyzing');
+          }}
+          onHome={() => go('landing')}
+        />
+      </Suspense>
     );
   }
   if (stage === 'analyzing') {
     // wait for Claude if it's still writing; the built-in report is instant fallback
     const stillWriting = generateReport.isPending && !generateReport.isError;
     return (
-      <Analyzing
-        name={answers.name ?? ''}
-        generating={stillWriting}
-        onDone={() => go('report')}
-      />
+      <Suspense fallback={<StageFallback />}>
+        <Analyzing
+          name={answers.name ?? ''}
+          generating={stillWriting}
+          onDone={() => go('report')}
+        />
+      </Suspense>
     );
   }
   if (stage === 'report') {
-    return <Report answers={answers} deep={deepReport} unlocked={unlocked} />;
+    return (
+      <Suspense fallback={<StageFallback />}>
+        <Report answers={answers} deep={deepReport} unlocked={unlocked} />
+      </Suspense>
+    );
   }
   return landing;
 }
