@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { asc, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "./connection";
 import { sessions, events, answers } from "../../db/schema";
@@ -336,6 +336,65 @@ export const adminRouter = createRouter({
         .limit(500);
     });
   }),
+
+  images: publicQuery
+    .input(
+      z.object({
+        password: z.string().max(128),
+        cursor: z.number().int().positive().optional(),
+        limit: z.number().int().min(1).max(24).default(12),
+      }),
+    )
+    .query(async ({ input }) => {
+      assertAdmin(input.password);
+      return runAdminQuery("images", async () => {
+        const db = getDb();
+        const storedPhotoFilter = and(
+          eq(answers.questionId, "photo"),
+          sql`${answers.value} ~ '^data:image/(png|jpe?g|webp);base64,'`,
+        );
+        const pageFilter = input.cursor
+          ? and(storedPhotoFilter, lt(answers.id, input.cursor))
+          : storedPhotoFilter;
+
+        const [countRows, rows] = await Promise.all([
+          db
+            .select({ count: sql<number>`count(*)` })
+            .from(answers)
+            .where(storedPhotoFilter),
+          db
+            .select({
+              id: answers.id,
+              token: answers.sessionToken,
+              photo: answers.value,
+              uploadedAt: answers.createdAt,
+              name: sessions.name,
+              email: sessions.email,
+              city: sessions.city,
+              country: sessions.country,
+              stage: sessions.stage,
+              completed: sessions.completed,
+            })
+            .from(answers)
+            .innerJoin(sessions, eq(sessions.token, answers.sessionToken))
+            .where(pageFilter)
+            .orderBy(desc(answers.id))
+            .limit(input.limit + 1),
+        ]);
+
+        const hasMore = rows.length > input.limit;
+        const page = rows.slice(0, input.limit).map(row => ({
+          ...row,
+          photo: row.photo as string,
+        }));
+
+        return {
+          items: page,
+          total: Number(countRows[0]?.count ?? 0),
+          nextCursor: hasMore ? page.at(-1)?.id : undefined,
+        };
+      });
+    }),
 
   sessionDetail: publicQuery
     .input(z.object({ password: z.string().max(128), token: z.string().min(8).max(64) }))

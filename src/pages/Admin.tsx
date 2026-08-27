@@ -9,11 +9,13 @@ import {
   Eye,
   Globe2,
   Heart,
+  ImageIcon,
   KeyRound,
   Laptop,
   LockKeyhole,
   LogOut,
   MapPin,
+  Maximize2,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -714,10 +716,19 @@ function AdminDashboard({
       retry: false,
     }
   );
+  const images = trpc.admin.images.useInfiniteQuery(
+    { password, limit: 12 },
+    {
+      getNextPageParam: lastPage => lastPage.nextCursor,
+      staleTime: 30_000,
+      retry: false,
+    }
+  );
 
   const unauthorized =
     overview.error?.data?.code === "UNAUTHORIZED" ||
-    visitors.error?.data?.code === "UNAUTHORIZED";
+    visitors.error?.data?.code === "UNAUTHORIZED" ||
+    images.error?.data?.code === "UNAUTHORIZED";
 
   useEffect(() => {
     if (unauthorized) onLock();
@@ -778,20 +789,30 @@ function AdminDashboard({
       );
     });
   }, [search, stageFilter, visitors.data]);
+  const uploadedImages = useMemo(
+    () => images.data?.pages.flatMap(page => page.items) ?? [],
+    [images.data]
+  );
+  const totalImages = images.data?.pages[0]?.total ?? 0;
 
   if (unauthorized) return null;
 
   const completionRate = data ? percentage(data.completed, data.total) : 0;
   const quizVisitors = funnel.find(step => step.stage === "quiz")?.count ?? 0;
   const reportRate = data ? percentage(data.completed, quizVisitors) : 0;
-  const isRefreshing = overview.isFetching || visitors.isFetching;
+  const isRefreshing =
+    overview.isFetching || visitors.isFetching || images.isRefetching;
   const lastUpdatedAt = Math.max(
     overview.dataUpdatedAt,
     visitors.dataUpdatedAt
   );
 
   const refresh = () => {
-    void Promise.all([overview.refetch(), visitors.refetch()]);
+    void Promise.all([
+      overview.refetch(),
+      visitors.refetch(),
+      images.refetch(),
+    ]);
   };
 
   return (
@@ -1142,6 +1163,173 @@ function AdminDashboard({
                 Location data will appear with the first tracked visitors.
               </div>
             ) : null}
+          </div>
+        </Panel>
+
+        <Panel className="mt-5">
+          <PanelHeader
+            eyebrow="Private media"
+            title="Uploaded images"
+            description="Every recoverable visitor photo, newest first"
+            action={
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f5efec] px-2.5 py-1 text-xs font-semibold text-[#715d68]">
+                <ImageIcon className="h-3.5 w-3.5" />
+                {images.isLoading
+                  ? "Loading…"
+                  : `${formatNumber(totalImages)} ${totalImages === 1 ? "image" : "images"}`}
+              </span>
+            }
+          />
+
+          <div className="p-5 sm:p-6">
+            <div className="mb-5 flex items-start gap-3 rounded-2xl border border-[#eadfd9] bg-[#fcf9f7] px-4 py-3.5">
+              <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-[#f5e8ed] text-[#aa4e6d]">
+                <ShieldCheck className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-[#523347]">
+                  Private admin gallery
+                </p>
+                <p className="mt-0.5 text-xs leading-5 text-[#8d7884]">
+                  These images are never public. Open a visitor profile for the
+                  related answers and journey.
+                </p>
+              </div>
+            </div>
+
+            {images.isLoading ? (
+              <div
+                className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+                aria-label="Loading uploaded images"
+              >
+                {Array.from({ length: 6 }, (_, index) => (
+                  <div
+                    key={index}
+                    className="aspect-[4/5] animate-pulse rounded-2xl bg-[#eee5e1]"
+                  />
+                ))}
+              </div>
+            ) : images.isError ? (
+              <div className="flex min-h-52 flex-col items-center justify-center text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fae9ee] text-[#b34f6f]">
+                  <ImageIcon className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-sm font-semibold text-[#4b3041]">
+                  Uploaded images are unavailable
+                </p>
+                <p className="mt-1 max-w-sm text-xs leading-5 text-[#95838d]">
+                  The rest of the dashboard is still available. Retry this
+                  gallery without reloading the page.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void images.refetch()}
+                  disabled={images.isFetching}
+                  className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-[#3d0b26] px-4 text-xs font-semibold text-white transition hover:bg-[#551039] disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${images.isFetching ? "animate-spin" : ""}`}
+                  />
+                  Retry images
+                </button>
+              </div>
+            ) : uploadedImages.length === 0 ? (
+              <div className="flex min-h-52 flex-col items-center justify-center text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f5e8ed] text-[#aa4e6d]">
+                  <ImageIcon className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-sm font-semibold text-[#4b3041]">
+                  No stored images yet
+                </p>
+                <p className="mt-1 max-w-sm text-xs leading-5 text-[#95838d]">
+                  New visitor photos will appear here after they are uploaded
+                  and the dashboard refreshes.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                  {uploadedImages.map(item => {
+                    const visitorLabel =
+                      item.name || item.email || "Anonymous visitor";
+                    const location = [item.city, item.country]
+                      .filter(Boolean)
+                      .join(", ");
+                    return (
+                      <article
+                        key={item.id}
+                        className="group overflow-hidden rounded-2xl border border-[#e9ded9] bg-white shadow-[0_16px_36px_-30px_rgba(61,11,38,0.7)]"
+                      >
+                        <a
+                          href={item.photo}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="relative block aspect-[4/5] overflow-hidden bg-[#f0e8e4] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#b95879]/30"
+                          aria-label={`Open ${visitorLabel}'s uploaded image full size`}
+                        >
+                          <img
+                            src={item.photo}
+                            alt={`${visitorLabel}'s uploaded photo`}
+                            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                          <span className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-xl bg-[#2d0a1e]/75 text-white opacity-100 shadow-sm backdrop-blur-sm transition sm:opacity-0 sm:group-hover:opacity-100">
+                            <Maximize2 className="h-3.5 w-3.5" />
+                          </span>
+                        </a>
+                        <div className="p-3">
+                          <p className="truncate text-xs font-semibold text-[#422438]">
+                            {visitorLabel}
+                          </p>
+                          <p className="mt-0.5 truncate text-[10px] text-[#97838e]">
+                            {location || "Location unknown"}
+                          </p>
+                          <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#f0e8e4] pt-2.5">
+                            <time className="truncate text-[10px] text-[#9c8993]">
+                              {new Date(item.uploadedAt).toLocaleDateString([], {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </time>
+                            <button
+                              type="button"
+                              onClick={() => setSelected(item.token)}
+                              className="flex-none text-[10px] font-semibold text-[#a84f6e] transition hover:text-[#70203f] focus-visible:outline-none focus-visible:underline"
+                            >
+                              View visitor
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                {images.hasNextPage ? (
+                  <div className="mt-6 flex flex-col items-center gap-2 border-t border-[#f0e7e3] pt-5">
+                    <p className="text-xs text-[#8d7884]">
+                      Showing {formatNumber(uploadedImages.length)} of{" "}
+                      {formatNumber(totalImages)} images
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void images.fetchNextPage()}
+                      disabled={images.isFetchingNextPage}
+                      className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#dfd2ce] bg-white px-4 text-xs font-semibold text-[#5a3d4f] transition hover:border-[#cfb9c1] hover:bg-[#fcf8f7] disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        className={`h-3.5 w-3.5 ${images.isFetchingNextPage ? "animate-spin" : ""}`}
+                      />
+                      {images.isFetchingNextPage
+                        ? "Loading…"
+                        : "Load more images"}
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
         </Panel>
 
