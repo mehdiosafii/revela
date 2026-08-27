@@ -180,6 +180,42 @@ const FAILURES = [
   },
 ];
 
+const RESEARCH_FOUNDATIONS = [
+  {
+    name: 'Phillip R. Shaver, PhD',
+    focus: 'Adult attachment',
+    role: 'Distinguished Professor Emeritus · UC Davis',
+    bio: 'His research helped extend attachment theory into adult romantic love, couple communication, loss, and the mental processes that shape close relationships.',
+    portrait: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Phillip_R._Shaver.jpg/960px-Phillip_R._Shaver.jpg',
+    portraitPosition: 'object-[center_28%]',
+    profile: 'https://psychology.ucdavis.edu/people/phillip-shaver',
+    photoSource: 'https://commons.wikimedia.org/wiki/File:Phillip_R._Shaver.jpg',
+    photoCredit: 'Coloj F. Kiloh · CC0',
+  },
+  {
+    name: 'Mario Mikulincer, PhD',
+    focus: 'Attachment security',
+    role: 'Professor of Psychology · Hebrew University',
+    bio: 'A leading adult-attachment researcher, his work examines attachment security, emotion regulation, close relationships, resilience, and prosocial behavior.',
+    portrait: 'https://upload.wikimedia.org/wikipedia/commons/9/98/Mario_micolinser.jpg',
+    portraitPosition: 'object-center',
+    profile: 'https://cris.huji.ac.il/en/persons/mario-mikulincer/',
+    photoSource: 'https://commons.wikimedia.org/wiki/File:Mario_micolinser.jpg',
+    photoCredit: 'Kobi Kalmanovitz · CC BY-SA 3.0 · cropped',
+  },
+  {
+    name: 'Helen Fisher, PhD',
+    focus: 'Romantic love & pair bonding',
+    role: 'Biological Anthropologist · Rutgers & Kinsey Institute',
+    bio: 'Her research used anthropology and neuroscience to study romantic love, mate choice, attraction, and the biological systems involved in human bonding.',
+    portrait: 'https://upload.wikimedia.org/wikipedia/commons/7/7d/HelenFisher2014.jpeg',
+    portraitPosition: 'object-[center_22%]',
+    profile: 'https://evolution.rutgers.edu/people/ches-associates/ches-associate-member/116-helen-fisher',
+    photoSource: 'https://commons.wikimedia.org/wiki/File:HelenFisher2014.jpeg',
+    photoCredit: 'Helen Fisher · CC0',
+  },
+];
+
 const INSIDE = [
   'Your Attachment Archetype — the exact pattern running your love life, named',
   'The Root-Cause Trace — your father template & childhood imprint, decoded',
@@ -293,7 +329,7 @@ export default function Landing({
           </div>
           <nav className="hidden items-center gap-8 text-sm font-medium text-[#4a1230]/75 md:flex">
             <a href="#method" className="transition-colors hover:text-[#751545]">The Method</a>
-            <a href="#team" className="transition-colors hover:text-[#751545]">Research Team</a>
+            <a href="#researchers" className="transition-colors hover:text-[#751545]">Researchers</a>
             <a href="#stories" className="transition-colors hover:text-[#751545]">Member Stories</a>
             <a href="#faq" className="transition-colors hover:text-[#751545]">FAQ</a>
           </nav>
@@ -336,83 +372,80 @@ export default function Landing({
         </Reveal>
       </section>
 
-      {/* ── Research team credibility ── */}
-      <section id="team" className="relative scroll-mt-28 overflow-hidden border-y border-[#751545]/10 bg-white/65 px-6 py-24 md:py-28">
+      {/* ── Research foundations ── */}
+      <section id="researchers" className="relative scroll-mt-28 overflow-hidden border-y border-[#751545]/10 bg-white/65 px-6 py-24 md:py-28">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#c4688a]/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-[#c9a24b]/10 blur-3xl" />
 
-        <div className="relative mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20">
-          <Reveal>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">
-                Built by the Revela research team
-              </p>
-              <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
-                Researchers and PhDs built the program
-                <em className="font-light text-[#751545]"> behind your reading.</em>
-              </h2>
-              <p className="mt-7 text-[15.5px] leading-relaxed text-[#4a1230]/72 md:text-base">
-                The Pattern Decoding Method™ was developed by a multidisciplinary team working
-                across attachment research, behavioral science, and relationship education. Their
-                goal was to turn decades of published research into a focused 21-question experience —
-                not another generic personality quiz.
-              </p>
-
-              <div className="mt-8 flex flex-wrap gap-2.5">
-                {['Researchers + PhDs', 'Research-informed framework', 'Human-reviewed language'].map((label) => (
-                  <span key={label} className="rounded-full border border-[#751545]/12 bg-[#fbf5ef] px-4 py-2 text-[12px] font-medium text-[#4a1230]/70">
-                    <span className="mr-2 text-[#c9a24b]">✦</span>{label}
-                  </span>
-                ))}
-              </div>
-
-              <button onClick={onStart} className="btn-shine mt-9 rounded-full px-7 py-3.5 text-sm font-semibold text-white">
-                <span>{resume ? 'Continue my assessment →' : 'Take the research-led assessment →'}</span>
-              </button>
-            </div>
+        <div className="relative mx-auto max-w-6xl">
+          <Reveal className="mx-auto max-w-3xl text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">
+              The research lineage behind Revela
+            </p>
+            <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
+              Meet three scholars who changed how we understand
+              <em className="font-light text-[#751545]"> attachment and romantic love.</em>
+            </h2>
+            <p className="mx-auto mt-7 max-w-2xl text-[15.5px] leading-relaxed text-[#4a1230]/72 md:text-base">
+              Revela draws on the field their published work helped shape — translating established
+              relationship science into structured questions for personal reflection.
+            </p>
           </Reveal>
 
-          <Reveal delay={160}>
-            <div className="gold-ring overflow-hidden rounded-[2rem] bg-[#3d0b26] text-[#fbf5ef] shadow-xl shadow-[#3d0b26]/10">
-              <div className="border-b border-[#fbf5ef]/10 px-7 py-6 md:px-9">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#edc840]">
-                  How the team built Revela
-                </p>
-                <p className="font-display mt-2 text-xl font-medium md:text-2xl">
-                  Research, translated with care.
-                </p>
-              </div>
-              <div className="divide-y divide-[#fbf5ef]/10">
-                {[
-                  {
-                    n: '01',
-                    t: 'Evidence review',
-                    d: 'The team synthesized established attachment and relationship research to define the patterns Revela explores.',
-                  },
-                  {
-                    n: '02',
-                    t: 'Assessment design',
-                    d: 'Researchers translated those findings into carefully sequenced questions spanning childhood, caregivers, and adult relationships.',
-                  },
-                  {
-                    n: '03',
-                    t: 'Interpretation framework',
-                    d: 'Researchers and PhDs shaped the framework for clarity, restraint, and practical usefulness — without presenting it as a diagnosis.',
-                  },
-                ].map((step) => (
-                  <div key={step.n} className="grid grid-cols-[44px_1fr] gap-4 px-7 py-6 md:px-9">
-                    <span className="font-display text-2xl font-light text-[#c4688a]">{step.n}</span>
-                    <div>
-                      <h3 className="font-display text-lg font-medium">{step.t}</h3>
-                      <p className="mt-2 text-[14px] leading-relaxed text-[#fbf5ef]/65">{step.d}</p>
-                    </div>
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {RESEARCH_FOUNDATIONS.map((researcher, index) => (
+              <Reveal key={researcher.name} delay={index * 120}>
+                <article className="flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-[#751545]/10 bg-[#fbf5ef] shadow-[0_20px_60px_-38px_rgba(61,11,38,0.35)]">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-[#eadfda]">
+                    <img
+                      src={researcher.portrait}
+                      alt={`Portrait of ${researcher.name}`}
+                      className={`h-full w-full object-cover grayscale-[18%] transition duration-500 hover:scale-[1.02] hover:grayscale-0 ${researcher.portraitPosition}`}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute left-4 top-4 rounded-full bg-[#3d0b26]/90 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#fbf5ef] backdrop-blur">
+                      {researcher.focus}
+                    </span>
                   </div>
-                ))}
-              </div>
-              <p className="border-t border-[#fbf5ef]/10 px-7 py-5 text-[11.5px] leading-relaxed text-[#fbf5ef]/45 md:px-9">
-                Revela is an educational self-reflection program, not medical advice, diagnosis, or therapy.
-              </p>
-            </div>
+
+                  <div className="flex flex-1 flex-col p-6">
+                    <h3 className="font-display text-xl font-medium text-[#3d0b26]">{researcher.name}</h3>
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.13em] text-[#a24f6d]">
+                      {researcher.role}
+                    </p>
+                    <p className="mt-4 flex-1 text-[14px] leading-relaxed text-[#4a1230]/70">{researcher.bio}</p>
+                    <a
+                      href={researcher.profile}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-5 text-[12px] font-semibold text-[#751545] underline decoration-[#c9a24b]/60 underline-offset-4 transition hover:decoration-[#751545]"
+                    >
+                      View academic profile ↗
+                    </a>
+                    <a
+                      href={researcher.photoSource}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 text-[9.5px] leading-relaxed text-[#4a1230]/38 transition hover:text-[#751545]/65"
+                    >
+                      Photo: {researcher.photoCredit} ↗
+                    </a>
+                  </div>
+                </article>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal delay={360} className="mt-10 text-center">
+            <p className="mx-auto max-w-3xl text-[11.5px] leading-relaxed text-[#4a1230]/48">
+              These independent scholars are featured for their contributions to the field. They are
+              not affiliated with Revela and do not endorse this assessment. Revela is an educational
+              self-reflection program, not medical advice, diagnosis, or therapy.
+            </p>
+            <button onClick={onStart} className="btn-shine mt-8 rounded-full px-7 py-3.5 text-sm font-semibold text-white">
+              <span>{resume ? 'Continue my assessment →' : 'Take the research-informed assessment →'}</span>
+            </button>
           </Reveal>
         </div>
       </section>
