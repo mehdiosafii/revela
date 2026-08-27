@@ -28,6 +28,7 @@ const trpcClient = trpc.createClient({
         url: "/api/trpc",
         transformer: superjson,
         maxItems: 1,
+        methodOverride: "POST",
         fetch: fetchWithTimeout,
       }),
       false: httpBatchLink({
