@@ -450,6 +450,71 @@ export default function Landing({
         </div>
       </section>
 
+      {/* ── Social conversation ── */}
+      <section className="relative overflow-hidden border-y border-[#751545]/10 bg-white/60 px-6 py-24 md:py-28">
+        <div className="pointer-events-none absolute -left-24 top-1/3 h-72 w-72 rounded-full bg-[#c4688a]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 bottom-1/4 h-72 w-72 rounded-full bg-[#c9a24b]/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-5xl">
+          <Reveal className="mx-auto max-w-3xl text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">
+              When the report connects the dots
+            </p>
+            <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
+              She expected another quiz.
+              <br />
+              <em className="font-light text-[#751545]">It revealed the pattern underneath.</em>
+            </h2>
+            <p className="mx-auto mt-7 max-w-2xl text-[15.5px] leading-relaxed text-[#4a1230]/72 md:text-base">
+              Seven minutes can connect the relationship choices that never seemed connected — and turn
+              a vague feeling into a pattern you can finally work with.
+            </p>
+          </Reveal>
+
+          <Reveal delay={140} className="mt-12">
+            <div
+              className="-mx-6 overflow-x-auto px-6 pb-3 md:mx-0 md:overflow-visible md:px-0 md:pb-0"
+              aria-label="Scrollable illustrative Facebook conversation"
+            >
+              <div className="w-[720px] rounded-[2rem] border border-[#751545]/10 bg-[#f2e8e3] p-2 shadow-[0_30px_90px_-45px_rgba(61,11,38,0.42)] md:w-full md:p-3">
+                <a
+                  href="/revela-facebook-conversation.jpg"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Open the illustrative Facebook conversation at full size"
+                  className="block overflow-hidden rounded-[1.55rem] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#751545] focus-visible:ring-offset-4"
+                >
+                  <picture>
+                    <source srcSet="/revela-facebook-conversation.avif" type="image/avif" />
+                    <img
+                      src="/revela-facebook-conversation.jpg"
+                      alt="Illustrative Facebook conversation about a Revela report revealing a repeated relationship pattern"
+                      width="1352"
+                      height="1696"
+                      loading="lazy"
+                      className="h-auto w-full"
+                    />
+                  </picture>
+                </a>
+              </div>
+            </div>
+            <p className="mt-4 text-center text-[11px] leading-relaxed text-[#4a1230]/45">
+              Illustrative conversation based on common questions and reactions. Individual experiences vary.
+              <span className="ml-1 font-semibold text-[#751545]/65 md:hidden">
+                Swipe to read or tap to open full-size.
+              </span>
+            </p>
+          </Reveal>
+
+          <Reveal delay={220} className="mt-9 text-center">
+            <button onClick={onStart} className="btn-shine rounded-full px-7 py-3.5 text-sm font-semibold text-white">
+              <span>{resume ? 'Continue my assessment →' : 'See what my report reveals →'}</span>
+            </button>
+            <p className="mt-3 text-[11.5px] text-[#751545]/50">Free · private · no card required</p>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ── Pain agitation ── */}
       <section className="mx-auto max-w-3xl px-6 py-28">
         <Reveal className="text-center">
@@ -670,71 +735,6 @@ export default function Landing({
             Claim My Free Report
           </CTAButton>
         </Reveal>
-      </section>
-
-      {/* ── Social conversation ── */}
-      <section className="relative overflow-hidden border-y border-[#751545]/10 bg-white/60 px-6 py-24 md:py-28">
-        <div className="pointer-events-none absolute -left-24 top-1/3 h-72 w-72 rounded-full bg-[#c4688a]/10 blur-3xl" />
-        <div className="pointer-events-none absolute -right-24 bottom-1/4 h-72 w-72 rounded-full bg-[#c9a24b]/10 blur-3xl" />
-
-        <div className="relative mx-auto max-w-5xl">
-          <Reveal className="mx-auto max-w-3xl text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">
-              When the report connects the dots
-            </p>
-            <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
-              She expected another quiz.
-              <br />
-              <em className="font-light text-[#751545]">It revealed the pattern underneath.</em>
-            </h2>
-            <p className="mx-auto mt-7 max-w-2xl text-[15.5px] leading-relaxed text-[#4a1230]/72 md:text-base">
-              Seven minutes can connect the relationship choices that never seemed connected — and turn
-              a vague feeling into a pattern you can finally work with.
-            </p>
-          </Reveal>
-
-          <Reveal delay={140} className="mt-12">
-            <div
-              className="-mx-6 overflow-x-auto px-6 pb-3 md:mx-0 md:overflow-visible md:px-0 md:pb-0"
-              aria-label="Scrollable illustrative Facebook conversation"
-            >
-              <div className="w-[720px] rounded-[2rem] border border-[#751545]/10 bg-[#f2e8e3] p-2 shadow-[0_30px_90px_-45px_rgba(61,11,38,0.42)] md:w-full md:p-3">
-                <a
-                  href="/revela-facebook-conversation.jpg"
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Open the illustrative Facebook conversation at full size"
-                  className="block overflow-hidden rounded-[1.55rem] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#751545] focus-visible:ring-offset-4"
-                >
-                  <picture>
-                    <source srcSet="/revela-facebook-conversation.avif" type="image/avif" />
-                    <img
-                      src="/revela-facebook-conversation.jpg"
-                      alt="Illustrative Facebook conversation about a Revela report revealing a repeated relationship pattern"
-                      width="1352"
-                      height="1696"
-                      loading="lazy"
-                      className="h-auto w-full"
-                    />
-                  </picture>
-                </a>
-              </div>
-            </div>
-            <p className="mt-4 text-center text-[11px] leading-relaxed text-[#4a1230]/45">
-              Illustrative conversation based on common questions and reactions. Individual experiences vary.
-              <span className="ml-1 font-semibold text-[#751545]/65 md:hidden">
-                Swipe to read or tap to open full-size.
-              </span>
-            </p>
-          </Reveal>
-
-          <Reveal delay={220} className="mt-9 text-center">
-            <button onClick={onStart} className="btn-shine rounded-full px-7 py-3.5 text-sm font-semibold text-white">
-              <span>{resume ? 'Continue my assessment →' : 'See what my report reveals →'}</span>
-            </button>
-            <p className="mt-3 text-[11.5px] text-[#751545]/50">Free · private · no card required</p>
-          </Reveal>
-        </div>
       </section>
 
       {/* ── Member stories ── */}
