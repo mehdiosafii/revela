@@ -386,29 +386,46 @@ export default function Landing({
           <p className="text-[12.5px] text-[#751545]/55">Free · 21 questions · 7 minutes · your report appears instantly</p>
         </Reveal>
         <Reveal delay={600} className="mt-14 w-full max-w-5xl">
-          <div id="how-it-works" className="scroll-mt-28 rounded-[1.75rem] border border-[#751545]/10 bg-white/75 p-6 text-left shadow-[0_22px_70px_-48px_rgba(61,11,38,0.45)] sm:p-8 md:p-10">
-            <div className="text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">How it works</p>
-              <h2 className="font-display mt-3 text-2xl font-medium text-[#3d0b26] md:text-3xl">
-                From 21 questions to a clear next step.
-              </h2>
+          <div id="how-it-works" className="scroll-mt-28 overflow-hidden rounded-[1.75rem] border border-[#751545]/12 bg-white/80 text-left shadow-[0_22px_70px_-48px_rgba(61,11,38,0.45)]">
+            <div className="px-6 pt-7 sm:px-8 sm:pt-9 md:px-10 md:pt-10">
+              <div className="mx-auto max-w-2xl text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">How it works</p>
+                <h2 className="font-display mt-3 text-2xl font-medium text-[#3d0b26] md:text-4xl">
+                  Clear questions. A transparent result.
+                </h2>
+                <p className="mx-auto mt-4 max-w-xl text-[14.5px] leading-relaxed text-[#4a1230]/70 md:text-[15.5px]">
+                  Revela organizes your answers into a research-informed reflection on your relationship patterns — explained in plain language, never presented as a diagnosis.
+                </p>
+              </div>
+
+              <ol className="mt-8 grid divide-y divide-[#751545]/10 border-y border-[#751545]/10 md:grid-cols-3 md:divide-x md:divide-y-0">
+                {[
+                  ['01', 'Answer 21 focused questions', 'About seven minutes on your relationship experiences, choices, and reactions.'],
+                  ['02', 'See the pattern clearly', 'Your report connects your answers and explains what may be repeating — and why.'],
+                  ['03', 'Know what to try next', 'Receive your reading instantly, plus a practical 90-day path for reflection and change.'],
+                ].map(([number, title, description]) => (
+                  <li key={number} className="px-1 py-6 text-center md:px-6 md:py-8">
+                    <span className="font-display text-2xl font-light text-[#c4688a]">{number}</span>
+                    <h3 className="font-display mt-2 text-lg font-medium text-[#3d0b26]">{title}</h3>
+                    <p className="mx-auto mt-2 max-w-xs text-[13.5px] leading-relaxed text-[#4a1230]/65">{description}</p>
+                  </li>
+                ))}
+              </ol>
             </div>
-            <div className="mt-7 grid gap-3 md:grid-cols-3">
+
+            <div className="mt-7 grid grid-cols-2 gap-px bg-[#751545]/10 sm:grid-cols-4">
               {[
-                ['1', 'Answer', 'Share what has happened in your relationships and how you tend to respond.'],
-                ['2', 'See your pattern', 'Your report explains what may be repeating and where it may come from.'],
-                ['3', 'Move forward', 'Get a practical 90-day path with prompts and conversation tools.'],
-              ].map(([number, title, description]) => (
-                <div key={number} className="rounded-2xl bg-[#fbf5ef] p-5">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#3d0b26] text-sm font-semibold text-[#edc840]">
-                    {number}
-                  </span>
-                  <h3 className="font-display mt-4 text-lg font-medium text-[#3d0b26]">{title}</h3>
-                  <p className="mt-2 text-[14px] leading-relaxed text-[#4a1230]/70">{description}</p>
+                'Informed by published research',
+                'Private and encrypted',
+                'Free — no card required',
+                'Educational, not diagnostic',
+              ].map((trustPoint) => (
+                <div key={trustPoint} className="flex min-h-20 items-center justify-center gap-2 bg-[#fbf5ef] px-3 py-4 text-center">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#751545] text-[10px] font-bold text-white">✓</span>
+                  <span className="text-[11.5px] font-medium leading-snug text-[#4a1230]/75">{trustPoint}</span>
                 </div>
               ))}
             </div>
-            <p className="mt-6 text-center text-[12px] text-[#751545]/55">Free · private · no card required</p>
           </div>
         </Reveal>
       </section>
