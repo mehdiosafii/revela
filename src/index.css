@@ -262,6 +262,27 @@
     radial-gradient(ellipse 60% 60% at 60% 40%, rgba(117, 21, 69, 0.05), transparent 60%);
 }
 
+/* Let the browser skip layout and paint work for distant landing-page sections. */
+.content-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-marquee { transform: none !important; }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: var(--cream); }
@@ -272,6 +293,7 @@
 
 /* ── print / PDF export ── */
 @media print {
+  .content-auto { content-visibility: visible; contain-intrinsic-size: auto; }
   .no-print { display: none !important; }
   body { background: #ffffff !important; }
   .print-block { break-inside: avoid; }

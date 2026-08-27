@@ -333,7 +333,7 @@ export default function Landing({
             <a href="#stories" className="transition-colors hover:text-[#751545]">Member Stories</a>
             <a href="#faq" className="transition-colors hover:text-[#751545]">FAQ</a>
           </nav>
-          <button onClick={onStart} className="btn-shine rounded-full px-5 py-2.5 text-sm font-semibold text-white">
+          <button onClick={onStart} className="btn-shine min-h-11 rounded-full px-5 py-2.5 text-sm font-semibold text-white">
             <span>{resume ? 'Continue' : 'Get My Free Reading'}</span>
           </button>
         </div>
@@ -373,7 +373,7 @@ export default function Landing({
       </section>
 
       {/* ── Member stories ── */}
-      <section id="stories" className="overflow-hidden py-28">
+      <section id="stories" className="content-auto overflow-hidden py-28">
         <Reveal className="px-6 text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Member stories</p>
           <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-5xl">
@@ -402,7 +402,7 @@ export default function Landing({
       </section>
 
       {/* ── Research foundations ── */}
-      <section id="researchers" className="relative scroll-mt-28 overflow-hidden border-y border-[#751545]/10 bg-white/65 px-6 py-24 md:py-28">
+      <section id="researchers" className="content-auto relative scroll-mt-28 overflow-hidden border-y border-[#751545]/10 bg-white/65 px-6 py-24 md:py-28">
         <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#c4688a]/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-[#c9a24b]/10 blur-3xl" />
 
@@ -431,6 +431,8 @@ export default function Landing({
                       alt={`Portrait of ${researcher.name}`}
                       className={`h-full w-full object-cover grayscale-[18%] transition duration-500 hover:scale-[1.02] hover:grayscale-0 ${researcher.portraitPosition}`}
                       loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
                       referrerPolicy="no-referrer"
                     />
                     <span className="absolute left-4 top-4 rounded-full bg-[#3d0b26]/90 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#fbf5ef] backdrop-blur">
@@ -480,7 +482,7 @@ export default function Landing({
       </section>
 
       {/* ── Social conversation ── */}
-      <section className="relative overflow-hidden border-y border-[#751545]/10 bg-white/60 px-6 py-24 md:py-28">
+      <section className="content-auto relative overflow-hidden border-y border-[#751545]/10 bg-white/60 px-6 py-24 md:py-28">
         <div className="pointer-events-none absolute -left-24 top-1/3 h-72 w-72 rounded-full bg-[#c4688a]/10 blur-3xl" />
         <div className="pointer-events-none absolute -right-24 bottom-1/4 h-72 w-72 rounded-full bg-[#c9a24b]/10 blur-3xl" />
 
@@ -521,6 +523,8 @@ export default function Landing({
                       width="1352"
                       height="1696"
                       loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
                       className="h-auto w-full"
                     />
                   </picture>
@@ -545,7 +549,7 @@ export default function Landing({
       </section>
 
       {/* ── Pain agitation ── */}
-      <section className="mx-auto max-w-3xl px-6 py-28">
+      <section className="content-auto mx-auto max-w-3xl px-6 py-28">
         <Reveal className="text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Read this slowly</p>
           <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
@@ -573,7 +577,7 @@ export default function Landing({
       </section>
 
       {/* ── Why nothing worked / the mechanism ── */}
-      <section id="method" className="border-y border-[#751545]/10 bg-white/60 py-28">
+      <section id="method" className="content-auto border-y border-[#751545]/10 bg-white/60 py-28">
         <div className="mx-auto max-w-6xl px-6">
           <Reveal className="max-w-3xl">
             <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Why nothing has worked yet</p>
@@ -623,7 +627,7 @@ export default function Landing({
       </section>
 
       {/* ── What's inside ── */}
-      <section className="mx-auto max-w-3xl px-6 py-28">
+      <section className="content-auto mx-auto max-w-3xl px-6 py-28">
         <Reveal className="text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Everything in your free report</p>
           <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-5xl">
@@ -650,7 +654,7 @@ export default function Landing({
       </section>
 
       {/* ── Disqualification ── */}
-      <section className="border-y border-[#751545]/10 bg-white/60 px-6 py-24">
+      <section className="content-auto border-y border-[#751545]/10 bg-white/60 px-6 py-24">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
             <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Fair warning</p>
@@ -677,7 +681,7 @@ export default function Landing({
       </section>
 
       {/* ── Approach / editorial board ── */}
-      <section id="research" className="border-b border-[#751545]/10 bg-[#3d0b26] py-28 text-[#fbf5ef]">
+      <section id="research" className="content-auto border-b border-[#751545]/10 bg-[#3d0b26] py-28 text-[#fbf5ef]">
         <div className="mx-auto max-w-6xl px-6">
           <Reveal className="max-w-3xl">
             <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">Our approach</p>
@@ -722,52 +726,8 @@ export default function Landing({
         </div>
       </section>
 
-      {/* ── Value stack with anchors ── */}
-      <section className="mx-auto max-w-3xl px-6 py-28">
-        <Reveal className="text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Everything inside your free report</p>
-          <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-5xl">
-            Here’s exactly what you get —
-            <em className="font-light text-[#751545]"> and what it’s worth.</em>
-          </h2>
-        </Reveal>
-        <div className="mt-12 flex flex-col gap-3">
-          {[
-            { item: 'Your Attachment Archetype — your love-life pattern, named', value: 97 },
-            { item: 'The Root-Cause Trace — your father template & childhood imprint, decoded', value: 147 },
-            { item: 'The Ex Pattern Map — why they all rhymed, in plain language', value: 67 },
-            { item: '“The Real Reason You’re Still Single” — your personal reading', value: 197 },
-            { item: 'Your 90-Day Path — week-by-week moves from pattern to proposal', value: 197 },
-          ].map((v, i) => (
-            <Reveal key={i} delay={i * 80}>
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-4">
-                <p className="text-[15px] leading-snug text-[#3d0b26]">{v.item}</p>
-                <p className="shrink-0 text-[14px] tabular-nums">
-                  <span className="text-[#751545]/40 line-through">${v.value}</span>{' '}
-                  <span className="font-bold text-[#751545]">FREE</span>
-                </p>
-              </div>
-            </Reveal>
-          ))}
-          <Reveal delay={420}>
-            <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#3d0b26] px-6 py-5">
-              <p className="font-display text-lg font-medium text-[#fbf5ef]">Total value</p>
-              <p className="font-display text-2xl text-[#edc840]">
-                <span className="text-base text-[#fbf5ef]/40 line-through">$705</span> — $0 today
-              </p>
-            </div>
-          </Reveal>
-        </div>
-        <Reveal delay={200} className="mt-10">
-          <CTAButton onStart={onStart} resume={resume} onRestart={onRestart}
-            sub="No card. No signup wall. Answer 21 questions, get your report.">
-            Claim My Free Report
-          </CTAButton>
-        </Reveal>
-      </section>
-
       {/* ── FAQ ── */}
-      <section id="faq" className="border-y border-[#751545]/10 bg-white/60 px-6 py-28">
+      <section id="faq" className="content-auto border-y border-[#751545]/10 bg-white/60 px-6 py-28">
         <div className="mx-auto max-w-3xl">
           <Reveal className="text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Questions, answered honestly</p>
@@ -802,7 +762,7 @@ export default function Landing({
       </section>
 
       {/* ── Final CTA ── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#fbf5ef] to-[#f3e8df] px-6 py-32 text-center">
+      <section className="content-auto relative overflow-hidden bg-gradient-to-b from-[#fbf5ef] to-[#f3e8df] px-6 py-32 text-center">
         <div className="pointer-events-none absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#c4688a]/10 blur-3xl" />
         <Reveal>
           <h2 className="font-display mx-auto max-w-3xl text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
