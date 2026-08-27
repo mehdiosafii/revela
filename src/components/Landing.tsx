@@ -311,12 +311,20 @@ export default function Landing({
   onRestart?: () => void;
 }) {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [showStickyCta, setShowStickyCta] = useState(false);
 
   const spots = useSpotsLeft();
   const reset = useResetCountdown(spots?.resetAt);
 
+  useEffect(() => {
+    const updateStickyCta = () => setShowStickyCta(window.scrollY > 80);
+    updateStickyCta();
+    window.addEventListener('scroll', updateStickyCta, { passive: true });
+    return () => window.removeEventListener('scroll', updateStickyCta);
+  }, []);
+
   return (
-    <div className="bg-grain min-h-screen pb-20 md:pb-0">
+    <div className="bg-grain min-h-screen pb-28">
       {/* ── Real scarcity bar (live from the database) ── */}
       <ScarcityBar />
 
@@ -333,11 +341,24 @@ export default function Landing({
             <a href="#stories" className="transition-colors hover:text-[#751545]">Member Stories</a>
             <a href="#faq" className="transition-colors hover:text-[#751545]">FAQ</a>
           </nav>
-          <button onClick={onStart} className="btn-shine min-h-11 rounded-full px-5 py-2.5 text-sm font-semibold text-white">
-            <span>{resume ? 'Continue' : 'Get My Free Reading'}</span>
-          </button>
         </div>
       </header>
+
+      <div
+        aria-hidden={!showStickyCta}
+        className={`pointer-events-none fixed inset-x-0 bottom-0 z-[70] flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-all duration-500 ease-out ${
+          showStickyCta ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'
+        }`}
+      >
+        <button
+          onClick={onStart}
+          tabIndex={showStickyCta ? 0 : -1}
+          aria-label={resume ? 'Continue my free reading' : 'Get my free reading'}
+          className="btn-shine pointer-events-auto min-h-[54px] w-full max-w-sm rounded-full px-8 py-4 text-base font-semibold tracking-wide text-white shadow-[0_14px_40px_rgba(117,21,69,0.34)] sm:w-auto sm:min-w-72"
+        >
+          <span>{resume ? 'Continue My Free Reading →' : 'Get My Free Reading →'}</span>
+        </button>
+      </div>
 
       {/* ── Name-first hero ── */}
       <section className="relative flex flex-col items-center px-5 pt-36 pb-16 text-center sm:px-6">
@@ -805,12 +826,6 @@ export default function Landing({
         </div>
       </footer>
 
-      {/* ── Sticky mobile CTA ── */}
-      <div className="fixed inset-x-0 bottom-0 z-[70] border-t border-[#751545]/15 bg-[#fbf5ef]/95 p-3 backdrop-blur-md md:hidden">
-        <button onClick={onStart} className="btn-shine w-full rounded-full py-3.5 text-[15px] font-semibold text-white">
-          <span>{resume ? 'Continue my assessment →' : 'Get my free reading →'}</span>
-        </button>
-      </div>
     </div>
   );
 }
