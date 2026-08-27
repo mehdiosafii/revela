@@ -293,7 +293,7 @@ export default function Landing({
           </div>
           <nav className="hidden items-center gap-8 text-sm font-medium text-[#4a1230]/75 md:flex">
             <a href="#method" className="transition-colors hover:text-[#751545]">The Method</a>
-            <a href="#team" className="transition-colors hover:text-[#751545]">Our Approach</a>
+            <a href="#team" className="transition-colors hover:text-[#751545]">Research Team</a>
             <a href="#stories" className="transition-colors hover:text-[#751545]">Member Stories</a>
             <a href="#faq" className="transition-colors hover:text-[#751545]">FAQ</a>
           </nav>
@@ -336,46 +336,85 @@ export default function Landing({
         </Reveal>
       </section>
 
-      {/* ── Story hero (scrolled) ── */}
-      <section className="relative flex flex-col items-center justify-center px-6 pt-10 pb-16 text-center">
-        <div className="animate-float-slow pointer-events-none absolute left-[8%] top-[18%] hidden text-6xl text-[#c4688a]/25 lg:block">✦</div>
-        <div className="animate-float-slow pointer-events-none absolute right-[10%] top-[30%] hidden text-5xl text-[#c9a24b]/30 lg:block" style={{ animationDelay: '-3s' }}>❋</div>
+      {/* ── Research team credibility ── */}
+      <section id="team" className="relative scroll-mt-28 overflow-hidden border-y border-[#751545]/10 bg-white/65 px-6 py-24 md:py-28">
+        <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#c4688a]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-[#c9a24b]/10 blur-3xl" />
 
-        <Reveal>
-          <p className="mb-6 inline-block rounded-full border border-[#c9a24b]/40 bg-white/60 px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#751545]">
-            A free self-assessment for women done guessing
-          </p>
-        </Reveal>
-        <Reveal delay={120}>
-          <h1 className="font-display max-w-4xl text-[2.4rem] font-medium leading-[1.1] tracking-[-0.02em] text-[#3d0b26] md:text-6xl lg:text-[4.2rem]">
-            If you keep attracting men
-            <br />
-            who won’t commit —{' '}
-            <em className="font-light text-[#751545]">this 7-minute assessment may show you why.</em>
-          </h1>
-        </Reveal>
-        <Reveal delay={240}>
-          <p className="mx-auto mt-7 max-w-2xl text-base leading-relaxed text-[#4a1230]/75 md:text-lg">
-            Revela’s <b>Pattern Decoding Method™</b> helps you see the invisible script shaped by your
-            childhood, your father, and your exes — the one that may be choosing your men for you —
-            and offers a 90-day self-guided plan to change it. <b>Free. Private. Surprisingly specific.</b>
-          </p>
-        </Reveal>
-        <Reveal delay={360} className="mt-10">
-          <CTAButton onStart={onStart} resume={resume} onRestart={onRestart}
-            sub="Free · 21 questions · 7 minutes · your report appears instantly">
-            Show Me My Pattern — Free
-          </CTAButton>
-        </Reveal>
-        <Reveal delay={480} className="mt-12">
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[13px] text-[#4a1230]/60">
-            <span className="flex items-center gap-2"><Stars size="text-xs" /> Rated by our members</span>
-            <span className="hidden h-3 w-px bg-[#751545]/20 md:block" />
-            <span>Grounded in attachment research</span>
-            <span className="hidden h-3 w-px bg-[#751545]/20 md:block" />
-            <span>Encrypted & deletable anytime</span>
-          </div>
-        </Reveal>
+        <div className="relative mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20">
+          <Reveal>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">
+                Built by the Revela research team
+              </p>
+              <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-5xl">
+                Researchers and PhDs built the program
+                <em className="font-light text-[#751545]"> behind your reading.</em>
+              </h2>
+              <p className="mt-7 text-[15.5px] leading-relaxed text-[#4a1230]/72 md:text-base">
+                The Pattern Decoding Method™ was developed by a multidisciplinary team working
+                across attachment research, behavioral science, and relationship education. Their
+                goal was to turn decades of published research into a focused 21-question experience —
+                not another generic personality quiz.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-2.5">
+                {['Researchers + PhDs', 'Research-informed framework', 'Human-reviewed language'].map((label) => (
+                  <span key={label} className="rounded-full border border-[#751545]/12 bg-[#fbf5ef] px-4 py-2 text-[12px] font-medium text-[#4a1230]/70">
+                    <span className="mr-2 text-[#c9a24b]">✦</span>{label}
+                  </span>
+                ))}
+              </div>
+
+              <button onClick={onStart} className="btn-shine mt-9 rounded-full px-7 py-3.5 text-sm font-semibold text-white">
+                <span>{resume ? 'Continue my assessment →' : 'Take the research-led assessment →'}</span>
+              </button>
+            </div>
+          </Reveal>
+
+          <Reveal delay={160}>
+            <div className="gold-ring overflow-hidden rounded-[2rem] bg-[#3d0b26] text-[#fbf5ef] shadow-xl shadow-[#3d0b26]/10">
+              <div className="border-b border-[#fbf5ef]/10 px-7 py-6 md:px-9">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#edc840]">
+                  How the team built Revela
+                </p>
+                <p className="font-display mt-2 text-xl font-medium md:text-2xl">
+                  Research, translated with care.
+                </p>
+              </div>
+              <div className="divide-y divide-[#fbf5ef]/10">
+                {[
+                  {
+                    n: '01',
+                    t: 'Evidence review',
+                    d: 'The team synthesized established attachment and relationship research to define the patterns Revela explores.',
+                  },
+                  {
+                    n: '02',
+                    t: 'Assessment design',
+                    d: 'Researchers translated those findings into carefully sequenced questions spanning childhood, caregivers, and adult relationships.',
+                  },
+                  {
+                    n: '03',
+                    t: 'Interpretation framework',
+                    d: 'Researchers and PhDs shaped the framework for clarity, restraint, and practical usefulness — without presenting it as a diagnosis.',
+                  },
+                ].map((step) => (
+                  <div key={step.n} className="grid grid-cols-[44px_1fr] gap-4 px-7 py-6 md:px-9">
+                    <span className="font-display text-2xl font-light text-[#c4688a]">{step.n}</span>
+                    <div>
+                      <h3 className="font-display text-lg font-medium">{step.t}</h3>
+                      <p className="mt-2 text-[14px] leading-relaxed text-[#fbf5ef]/65">{step.d}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="border-t border-[#fbf5ef]/10 px-7 py-5 text-[11.5px] leading-relaxed text-[#fbf5ef]/45 md:px-9">
+                Revela is an educational self-reflection program, not medical advice, diagnosis, or therapy.
+              </p>
+            </div>
+          </Reveal>
+        </div>
       </section>
 
       {/* ── Pain agitation ── */}
@@ -511,7 +550,7 @@ export default function Landing({
       </section>
 
       {/* ── Approach / editorial board ── */}
-      <section id="team" className="border-b border-[#751545]/10 bg-[#3d0b26] py-28 text-[#fbf5ef]">
+      <section id="research" className="border-b border-[#751545]/10 bg-[#3d0b26] py-28 text-[#fbf5ef]">
         <div className="mx-auto max-w-6xl px-6">
           <Reveal className="max-w-3xl">
             <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">Our approach</p>
