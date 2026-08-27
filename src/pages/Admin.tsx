@@ -237,7 +237,7 @@ function SessionDrawer({
 }) {
   const detail = trpc.admin.sessionDetail.useQuery(
     { token, password },
-    { retry: false }
+    { retry: false, staleTime: 30_000 }
   );
   const session = detail.data?.session;
   const storedPhotoValue = detail.data?.answers.find(
@@ -311,8 +311,21 @@ function SessionDrawer({
                 Visitor details unavailable
               </p>
               <p className="mt-1 max-w-xs text-xs leading-5 text-[#95838d]">
-                Close this panel and try opening the visitor again.
+                {detail.isError
+                  ? "The request did not complete. Retry it without closing this visitor."
+                  : "This visitor is no longer available."}
               </p>
+              {detail.isError ? (
+                <button
+                  type="button"
+                  onClick={() => void detail.refetch()}
+                  disabled={detail.isFetching}
+                  className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-[#3d0b26] px-4 text-xs font-semibold text-white transition hover:bg-[#551039] disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${detail.isFetching ? "animate-spin" : ""}`} />
+                  Retry visitor details
+                </button>
+              ) : null}
             </div>
           ) : (
             <>
@@ -685,11 +698,21 @@ function AdminDashboard({
   const [stageFilter, setStageFilter] = useState<"all" | Stage>("all");
   const overview = trpc.admin.overview.useQuery(
     { password },
-    { refetchInterval: 8000, retry: false }
+    {
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+      staleTime: 10_000,
+      retry: false,
+    }
   );
   const visitors = trpc.admin.visitors.useQuery(
     { password },
-    { refetchInterval: 8000, retry: false }
+    {
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+      staleTime: 10_000,
+      retry: false,
+    }
   );
 
   const unauthorized =
@@ -857,20 +880,30 @@ function AdminDashboard({
           </div>
           <div className="flex w-fit items-center gap-2 rounded-xl border border-[#e3d8d4] bg-white px-3.5 py-2 text-xs text-[#715d68] shadow-sm">
             <Wifi className="h-3.5 w-3.5 text-[#4e9e75]" />
-            Refreshes every 8 seconds
+            Refreshes every 30 seconds
           </div>
         </div>
 
         {(overview.isError || visitors.isError) && !unauthorized ? (
           <div
-            role="status"
-            className="mb-5 flex items-start gap-3 rounded-xl border border-[#e8c3ce] bg-[#fff5f8] px-4 py-3 text-sm text-[#94405d]"
+            role="alert"
+            className="mb-5 flex flex-col gap-3 rounded-xl border border-[#e8c3ce] bg-[#fff5f8] px-4 py-3 text-sm text-[#94405d] sm:flex-row sm:items-center"
           >
             <Activity className="mt-0.5 h-4 w-4 flex-none" />
-            <p>
-              Some dashboard data could not be refreshed. The last available
-              figures are still shown.
+            <p className="flex-1">
+              {overview.data || visitors.data
+                ? "Live refresh did not complete. The last successful figures remain visible."
+                : "Dashboard data could not be loaded. Retry now; the rest of the site is unaffected."}
             </p>
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={isRefreshing}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-white px-3 text-xs font-semibold text-[#8f3b58] shadow-sm ring-1 ring-[#e8c3ce] transition hover:bg-[#fffafb] disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              Retry data
+            </button>
           </div>
         ) : null}
 
@@ -878,9 +911,13 @@ function AdminDashboard({
           <MetricCard
             icon={Activity}
             label="Live right now"
-            value={data ? formatNumber(data.liveNow) : "—"}
+            value={data ? formatNumber(data.liveNow) : overview.isError ? "Unavailable" : "…"}
             detail={
-              data?.liveNow
+              !data
+                ? overview.isError
+                  ? "Use Retry data above"
+                  : "Loading live activity"
+                : data.liveNow
                 ? "Visitors active in the last 90 seconds"
                 : "Waiting for the next visitor"
             }
@@ -889,28 +926,28 @@ function AdminDashboard({
           <MetricCard
             icon={Users}
             label="Total visitors"
-            value={data ? formatNumber(data.total) : "—"}
-            detail="All tracked sessions"
+            value={data ? formatNumber(data.total) : overview.isError ? "Unavailable" : "…"}
+            detail={data ? "All tracked sessions" : overview.isError ? "Use Retry data above" : "Loading session count"}
           />
           <MetricCard
             icon={CheckCircle2}
             label="Reports reached"
-            value={data ? formatNumber(data.completed) : "—"}
-            detail={`${completionRate}% of all visitors`}
+            value={data ? formatNumber(data.completed) : overview.isError ? "Unavailable" : "…"}
+            detail={data ? `${completionRate}% of all visitors` : overview.isError ? "Use Retry data above" : "Loading report totals"}
             progress={completionRate}
           />
           <MetricCard
             icon={BarChart3}
             label="Quiz completion"
-            value={data ? `${reportRate}%` : "—"}
-            detail="Of visitors who entered the quiz"
+            value={data ? `${reportRate}%` : overview.isError ? "Unavailable" : "…"}
+            detail={data ? "Of visitors who entered the quiz" : overview.isError ? "Use Retry data above" : "Loading completion rate"}
             progress={reportRate}
           />
           <MetricCard
             icon={Timer}
             label="Average session"
-            value={data ? formatDuration(data.avgDurationMs) : "—"}
-            detail="Time spent in the experience"
+            value={data ? formatDuration(data.avgDurationMs) : overview.isError ? "Unavailable" : "…"}
+            detail={data ? "Time spent in the experience" : overview.isError ? "Use Retry data above" : "Loading session time"}
           />
         </div>
 
@@ -1338,7 +1375,28 @@ function AdminDashboard({
             })}
           </div>
 
-          {!visitors.isLoading && filteredVisitors.length === 0 ? (
+          {visitors.isError && !visitors.data ? (
+            <div className="flex min-h-48 flex-col items-center justify-center px-6 text-center">
+              <Activity className="h-5 w-5 text-[#b34f6f]" />
+              <p className="mt-3 text-sm font-semibold text-[#594051]">
+                Visitor stream unavailable
+              </p>
+              <p className="mt-1 max-w-sm text-xs leading-5 text-[#998690]">
+                The request stopped before any visitor records were returned.
+              </p>
+              <button
+                type="button"
+                onClick={() => void visitors.refetch()}
+                disabled={visitors.isFetching}
+                className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-[#3d0b26] px-3 text-xs font-semibold text-white transition hover:bg-[#551039] disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${visitors.isFetching ? "animate-spin" : ""}`} />
+                Retry visitors
+              </button>
+            </div>
+          ) : null}
+
+          {visitors.isSuccess && filteredVisitors.length === 0 ? (
             <div className="flex min-h-48 flex-col items-center justify-center px-6 text-center">
               <Eye className="h-5 w-5 text-[#b39fa9]" />
               <p className="mt-3 text-sm font-semibold text-[#594051]">
