@@ -11,6 +11,7 @@ import { fbTrack } from '../lib/fbpixel';
 import { getToken } from '../lib/tracker';
 import { trpc } from '@/providers/trpc';
 import { Scene, ScenePhotoPrompt, useIllustrations } from './Illustrations';
+import ResetDashboard from './ResetDashboard';
 
 export interface DeepReport {
   archetype: string;
@@ -453,6 +454,8 @@ function FullReport({ answers, deep, premiumGenerating, notice }: { answers: Ans
             <p className="font-display mt-5 text-xl font-light italic leading-relaxed text-[#3d0b26]">“{view.headline}”</p>
           </div>
         </section>
+
+        <ResetDashboard answers={answers} archetypeName={view.archetypeName} />
 
         <Section eyebrow="Start here" title="Your first pattern interrupt">
           <div className="rounded-2xl border border-[#2f7d57]/20 bg-[#edf8f1] p-6">

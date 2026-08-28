@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "./connection";
+import { env } from "../lib/env";
 import { sessions, events, answers } from "../../db/schema";
 
 // Real, enforced daily capacity — reports are reviewed by a human team,
@@ -14,7 +15,7 @@ const MAX_PHOTO_DATA_URL_LENGTH = 1_200_000;
 const PHOTO_DATA_URL = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/;
 
 // ── Admin password gate (server-enforced) ──────────────────
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "2026";
+const ADMIN_PASSWORD = env.adminPassword;
 
 function assertAdmin(password: string) {
   if (password !== ADMIN_PASSWORD) {

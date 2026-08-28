@@ -73,7 +73,7 @@ export function Privacy() {
       <section>
         <H>Browser storage</H>
         <p className="mt-3">
-          Revela uses local browser storage to keep an anonymous session identifier, save unfinished progress, restore your result, and cache optional generated illustrations. Clearing site data in your browser removes those local copies and may prevent automatic restoration on that device.
+          Revela uses local browser storage to keep an anonymous session identifier, save unfinished progress, restore your result, store private Reset actions and date entries, and cache optional generated illustrations. Clearing site data in your browser removes those local copies and may prevent automatic restoration on that device.
         </p>
       </section>
 

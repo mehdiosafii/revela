@@ -145,7 +145,10 @@ export const checkoutRouter = createRouter({
 
       const checkout = await stripeRequest<StripeCheckoutSession>('/v1/checkout/sessions', {
         method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          'Idempotency-Key': `revela-checkout-${input.token}-v2`,
+        },
         body: form.toString(),
       });
 
