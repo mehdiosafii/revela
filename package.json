@@ -16,7 +16,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "build:api": "esbuild server/vercel.ts --platform=node --bundle --format=esm --outfile=api/index.mjs --banner:js=\"import { createRequire } from 'module';const require = createRequire(import.meta.url);\""
+    "build:api": "esbuild server/vercel.ts --platform=node --bundle --format=esm --outfile=api/index.mjs --banner:js=\"import { createRequire } from 'module';const require = createRequire(import.meta.url);\" && esbuild server/stripe-webhook.ts --platform=node --bundle --format=esm --outfile=api/stripe-webhook.mjs --banner:js=\"import { createRequire } from 'module';const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@hono/node-server": "^1.14.3",
