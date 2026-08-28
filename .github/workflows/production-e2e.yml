@@ -1,0 +1,186 @@
+name: One-time production browser verification
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  production-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install browser test dependencies
+        run: |
+          npm ci
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Exercise the public production product
+        run: |
+          mkdir -p production-artifacts
+          cat > .production-e2e.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import assert from 'node:assert/strict';
+
+          const origin = 'https://revela.love';
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            viewport: { width: 390, height: 844 },
+            locale: 'en-US',
+          });
+          const page = await context.newPage();
+          const consoleErrors = [];
+          page.on('console', (message) => {
+            if (message.type() === 'error') consoleErrors.push(message.text());
+          });
+          page.on('pageerror', (error) => consoleErrors.push(error.message));
+
+          await page.goto(origin, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+          await page.getByRole('heading', { name: /Same relationship/i }).waitFor({ timeout: 45_000 });
+          assert.equal(await page.evaluate(() => typeof window.fbq), 'undefined', 'Meta Pixel loaded before consent');
+          assert.equal(
+            await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+            true,
+            'Landing page overflows the mobile viewport',
+          );
+          await page.screenshot({ path: 'production-artifacts/home-mobile.png', fullPage: true });
+
+          const decline = page.getByRole('button', { name: 'Decline' });
+          if (await decline.isVisible()) await decline.click();
+          assert.equal(await page.evaluate(() => typeof window.fbq), 'undefined', 'Meta Pixel loaded after consent was declined');
+
+          const legacyPage = await context.newPage();
+          await legacyPage.goto(`${origin}/?unlocked=1`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+          await legacyPage.getByRole('heading', { name: /Same relationship/i }).waitFor({ timeout: 30_000 });
+          assert.equal(await legacyPage.getByText('Unlocked ✓').count(), 0, 'Legacy URL flag granted paid access');
+          await legacyPage.close();
+
+          await page.getByLabel('First name').fill('Production Test');
+          await page.getByRole('button', { name: /Begin/ }).click();
+          await page.getByText('Question 2 of 14').waitFor({ timeout: 20_000 });
+
+          for (let question = 2; question <= 13; question += 1) {
+            const option = page.locator('.opt-card').first();
+            await option.waitFor({ state: 'visible', timeout: 20_000 });
+            await option.click();
+            await page.getByText(`Question ${question + 1} of 14`).waitFor({ timeout: 20_000 });
+          }
+
+          const finalAnswer = page.locator('textarea').first();
+          await finalAnswer.fill('I want to choose from consistent behavior instead of trying to solve uncertainty with more effort.');
+          await page.getByRole('button', { name: /Show My Free Pattern Snapshot/ }).click();
+          await page.getByRole('heading', { name: 'Your Pattern Snapshot' }).waitFor({ timeout: 45_000 });
+          await page.getByText('Free result').waitFor();
+          await page.getByText('The recurring loop').waitFor();
+          await page.getByText('One practical pattern interrupt').waitFor();
+          assert.equal(
+            await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+            true,
+            'Pattern Snapshot overflows the mobile viewport',
+          );
+          await page.screenshot({ path: 'production-artifacts/free-snapshot-mobile.png', fullPage: true });
+
+          const health = await page.evaluate(async () => {
+            const response = await fetch('/api/health', { cache: 'no-store' });
+            return { status: response.status, body: await response.json() };
+          });
+          assert.equal(health.status, 200, 'Health endpoint did not return 200');
+          assert.equal(health.body.ok, true, 'Health endpoint did not report ok');
+
+          const preWebhookErrors = consoleErrors.filter(
+            (message) => !/favicon|third-party cookie|Failed to load resource.*facebook/i.test(message),
+          );
+          assert.deepEqual(preWebhookErrors, [], `Browser console errors before webhook test: ${preWebhookErrors.join(' | ')}`);
+
+          const webhookResponse = await page.evaluate(async () => {
+            const response = await fetch('/api/stripe-webhook', {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'stripe-signature': 't=1,v1=invalid',
+              },
+              body: '{}',
+            });
+            return { status: response.status, text: await response.text() };
+          });
+          assert.equal(
+            webhookResponse.status,
+            400,
+            `Webhook should reject an invalid signature with 400, received ${webhookResponse.status}: ${webhookResponse.text}`,
+          );
+
+          const samplePage = await context.newPage();
+          await samplePage.goto(`${origin}/sample`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+          await samplePage.getByText('Secure Love Reset Dashboard').waitFor({ timeout: 30_000 });
+          assert.equal(
+            await samplePage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+            true,
+            'Paid dashboard overflows the mobile viewport',
+          );
+          await samplePage.screenshot({ path: 'production-artifacts/paid-dashboard-mobile.png', fullPage: true });
+
+          await samplePage.getByRole('tab', { name: /SOS/ }).click();
+          await samplePage.getByText('Trigger & Text SOS').waitFor();
+          await samplePage.getByRole('tab', { name: /Dates/ }).click();
+          await samplePage.getByText('Date Decision Dashboard').waitFor();
+          await samplePage.getByLabel('Name or private label').fill('Production date');
+          await samplePage.getByLabel('Consistency over time: 5 out of 5').click();
+          await samplePage.getByRole('button', { name: 'Save this decision' }).click();
+          await samplePage.getByText('Your saved history').waitFor();
+          await samplePage.getByText('Production date').waitFor();
+          await samplePage.getByRole('tab', { name: /Scripts/ }).click();
+          await samplePage.getByText('Personal Script Vault').waitFor();
+          await samplePage.getByRole('tab', { name: /My Map/ }).click();
+          await samplePage.getByText('The answers shaping this Reset').waitFor();
+          await samplePage.close();
+
+          const checkoutButton = page.getByRole('button', { name: /Start My Secure Love Reset/ });
+          await checkoutButton.scrollIntoViewIfNeeded();
+          await checkoutButton.click();
+          const outcome = await Promise.race([
+            page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 }).then(() => 'stripe'),
+            page.getByRole('alert').waitFor({ state: 'visible', timeout: 30_000 }).then(() => 'error'),
+          ]);
+          if (outcome === 'error') {
+            throw new Error(`Checkout handoff failed: ${await page.getByRole('alert').innerText()}`);
+          }
+          assert.match(page.url(), /checkout\.stripe\.com/, 'Checkout did not navigate to Stripe');
+
+          await browser.close();
+          JS
+          node .production-e2e.mjs
+
+      - name: Upload production screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revela-production-browser-check
+          path: production-artifacts
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Remove the one-time workflow
+        if: always()
+        run: |
+          rm -f .production-e2e.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/production-e2e.yml
+          git commit -m 'Remove one-time production browser verification workflow'
+          git push origin HEAD:main
