@@ -5,7 +5,7 @@
   "outputDirectory": "dist/public",
   "functions": {
     "api/index.mjs": { "maxDuration": 120 },
-    "api/stripe-webhook.ts": { "maxDuration": 15 }
+    "api/stripe-webhook.mjs": { "maxDuration": 15 }
   },
   "rewrites": [
     { "source": "/api/stripe-webhook", "destination": "/api/stripe-webhook" },
