@@ -7,6 +7,7 @@ const START_KEY = 'revela_started_at';
 const PROGRESS_KEY = 'revela_progress';
 const MAX_STORED_PHOTO_LENGTH = 1_200_000;
 const PHOTO_DATA_URL = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/;
+const VALID_TOKEN = /^rv_[a-z0-9]{8,60}$/i;
 
 export interface SavedProgress {
   step: number;
@@ -79,13 +80,37 @@ export function loadFinished(): FinishedSession | null {
   }
 }
 
-export function getToken(): string {
-  let t = localStorage.getItem(TOKEN_KEY);
-  if (!t) {
-    t = 'rv_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem(TOKEN_KEY, t);
+let memoryToken: string | null = null;
+
+function createSecureToken(): string {
+  const webCrypto = globalThis.crypto;
+  if (!webCrypto?.getRandomValues) {
+    throw new Error('A secure browser context is required to create a Revela session.');
   }
-  return t;
+  const bytes = new Uint8Array(24);
+  webCrypto.getRandomValues(bytes);
+  return `rv_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+}
+
+export function getToken(): string {
+  if (memoryToken) return memoryToken;
+  try {
+    const stored = localStorage.getItem(TOKEN_KEY);
+    if (stored && VALID_TOKEN.test(stored)) {
+      memoryToken = stored;
+      return stored;
+    }
+  } catch {
+    // A memory-only session still works when browser storage is unavailable.
+  }
+
+  memoryToken = createSecureToken();
+  try {
+    localStorage.setItem(TOKEN_KEY, memoryToken);
+  } catch {
+    // Keep the cryptographically secure token in memory for this page session.
+  }
+  return memoryToken;
 }
 
 export function getDurationMs(): number {
