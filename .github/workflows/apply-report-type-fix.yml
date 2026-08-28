@@ -1,0 +1,61 @@
+name: Apply report type fix
+
+on:
+  push:
+    branches:
+      - codex/revela-offer-and-trust-overhaul
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/revela-offer-and-trust-overhaul
+          fetch-depth: 0
+
+      - name: Apply the isolated TypeScript fix and remove this one-time workflow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          report = Path('src/components/Report.tsx')
+          content = report.read_text()
+          old = '    corePattern: snapshot.loop,'
+          new = '    corePattern: [...snapshot.loop],'
+          if old not in content:
+              raise SystemExit('Expected Report.tsx assignment was not found')
+          report.write_text(content.replace(old, new, 1))
+          Path('.github/workflows/apply-report-type-fix.yml').unlink()
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Test
+        run: npm run test -- --passWithNoTests
+
+      - name: Build web and API
+        run: npm run build
+
+      - name: Commit verified fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/Report.tsx .github/workflows/apply-report-type-fix.yml
+          git commit -m 'Fix Report snapshot tuple typing'
+          git push origin HEAD:codex/revela-offer-and-trust-overhaul
