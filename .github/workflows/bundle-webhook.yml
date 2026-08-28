@@ -1,0 +1,73 @@
+name: Bundle Stripe webhook for Vercel
+
+on:
+  push:
+    branches:
+      - codex/revela-offer-and-trust-overhaul
+
+permissions:
+  contents: write
+
+jobs:
+  bundle-verify-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/revela-offer-and-trust-overhaul
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Replace native TypeScript webhook with a prebundled function
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          vercel = Path('vercel.json')
+          text = vercel.read_text()
+          old = '"api/stripe-webhook.ts": { "maxDuration": 15 }'
+          new = '"api/stripe-webhook.mjs": { "maxDuration": 15 }'
+          if old not in text:
+              raise SystemExit('Expected TypeScript webhook function pattern was not found')
+          vercel.write_text(text.replace(old, new, 1))
+
+          wrapper = Path('api/stripe-webhook.ts')
+          if not wrapper.exists():
+              raise SystemExit('Expected webhook wrapper was not found')
+          wrapper.unlink()
+          PY
+          npx esbuild server/stripe-webhook.ts \
+            --platform=node \
+            --bundle \
+            --format=esm \
+            --outfile=api/stripe-webhook.mjs \
+            --banner:js="import { createRequire } from 'module';const require = createRequire(import.meta.url);"
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Test
+        run: npm run test -- --passWithNoTests
+
+      - name: Build web and API
+        run: npm run build
+
+      - name: Commit verified webhook bundle
+        run: |
+          git checkout -- api/index.mjs
+          rm .github/workflows/bundle-webhook.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add api/stripe-webhook.mjs api/stripe-webhook.ts vercel.json .github/workflows/bundle-webhook.yml
+          git commit -m 'Prebundle Stripe webhook for Vercel'
+          git push origin HEAD:codex/revela-offer-and-trust-overhaul
