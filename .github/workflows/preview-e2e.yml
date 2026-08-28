@@ -1,0 +1,188 @@
+name: Final protected preview browser verification
+
+on:
+  push:
+    branches:
+      - codex/revela-offer-and-trust-overhaul
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  preview-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/revela-offer-and-trust-overhaul
+          fetch-depth: 0
+
+      - name: Resolve and consume temporary preview access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          comments="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/17/comments?per_page=100")"
+          comment_id="$(printf '%s' "$comments" | jq -r '[.[] | select(.body | startswith("/preview-e2e "))] | last | .id // empty')"
+          share_url="$(printf '%s' "$comments" | jq -r '[.[] | select(.body | startswith("/preview-e2e "))] | last | .body // empty' | sed 's#^/preview-e2e ##')"
+          test -n "$comment_id"
+          test -n "$share_url"
+          echo "::add-mask::$share_url"
+          printf 'SHARE_URL=%s\n' "$share_url" >> "$GITHUB_ENV"
+          curl --fail --silent --show-error -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" \
+            -d "$(jq -nc --arg body "Preview E2E access consumed by workflow run ${GITHUB_RUN_ID}." '{body:$body}')" >/dev/null
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install application and browser test dependencies
+        run: |
+          npm ci
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run full mobile funnel, dashboard, health, webhook, and checkout journey
+        run: |
+          mkdir -p preview-artifacts
+          cat > .preview-e2e.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import assert from 'node:assert/strict';
+
+          const shareUrl = process.env.SHARE_URL;
+          assert.ok(shareUrl, 'Missing protected preview URL');
+          const origin = new URL(shareUrl).origin;
+
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            viewport: { width: 390, height: 844 },
+            locale: 'en-US',
+          });
+          const page = await context.newPage();
+          const consoleErrors = [];
+          page.on('console', (message) => {
+            if (message.type() === 'error') consoleErrors.push(message.text());
+          });
+          page.on('pageerror', (error) => consoleErrors.push(error.message));
+
+          await page.goto(shareUrl, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+          await page.waitForLoadState('networkidle', { timeout: 120_000 });
+          await page.getByRole('heading', { name: /Same relationship/i }).waitFor({ timeout: 30_000 });
+
+          assert.equal(await page.evaluate(() => typeof window.fbq), 'undefined', 'Meta Pixel loaded before consent');
+          await page.screenshot({ path: 'preview-artifacts/home-mobile.png', fullPage: true });
+
+          const decline = page.getByRole('button', { name: 'Decline' });
+          if (await decline.isVisible()) await decline.click();
+          assert.equal(await page.evaluate(() => typeof window.fbq), 'undefined', 'Meta Pixel loaded after declining consent');
+          await page.getByRole('button', { name: 'Open privacy settings' }).waitFor({ timeout: 10_000 });
+
+          await page.getByLabel('First name').fill('Preview Test');
+          await page.getByRole('button', { name: /Begin/ }).click();
+          await page.getByText('Question 2 of 14').waitFor({ timeout: 20_000 });
+
+          for (let question = 2; question <= 13; question += 1) {
+            const option = page.locator('.opt-card').first();
+            await option.waitFor({ state: 'visible', timeout: 20_000 });
+            await option.click();
+            await page.getByText(`Question ${question + 1} of 14`).waitFor({ timeout: 20_000 });
+          }
+
+          await page.locator('textarea').first().fill(
+            'I want to stop mistaking uncertainty for chemistry and choose from consistent behavior.',
+          );
+          await page.getByRole('button', { name: /Show My Free Pattern Snapshot/ }).click();
+
+          await page.getByRole('heading', { name: 'Your Pattern Snapshot' }).waitFor({ timeout: 40_000 });
+          await page.getByText('Free result').waitFor({ timeout: 10_000 });
+          await page.getByText('The recurring loop').waitFor({ timeout: 10_000 });
+          await page.getByText('One practical pattern interrupt').waitFor({ timeout: 10_000 });
+          await page.screenshot({ path: 'preview-artifacts/free-snapshot-mobile.png', fullPage: true });
+
+          const health = await page.evaluate(async () => {
+            const response = await fetch('/api/health', { cache: 'no-store' });
+            return { status: response.status, body: await response.json() };
+          });
+          assert.equal(health.status, 200, 'Health endpoint did not return 200');
+          assert.equal(health.body.ok, true, 'Health endpoint did not report ok');
+
+          const webhookResponse = await context.request.post(`${origin}/api/stripe-webhook`, {
+            headers: { 'content-type': 'application/json', 'stripe-signature': 't=1,v1=invalid' },
+            data: '{}',
+          });
+          assert.equal(
+            webhookResponse.status(),
+            400,
+            `Webhook endpoint should reject an invalid signature with 400, received ${webhookResponse.status()}`,
+          );
+
+          const samplePage = await context.newPage();
+          await samplePage.goto(`${origin}/sample`, { waitUntil: 'networkidle', timeout: 120_000 });
+          await samplePage.getByText('Secure Love Reset Dashboard').waitFor({ timeout: 30_000 });
+          await samplePage.screenshot({ path: 'preview-artifacts/paid-dashboard-mobile.png', fullPage: true });
+
+          await samplePage.getByRole('tab', { name: /SOS/ }).click();
+          await samplePage.getByText('Trigger & Text SOS').waitFor();
+          await samplePage.getByRole('tab', { name: /Dates/ }).click();
+          await samplePage.getByText('Date Decision Dashboard').waitFor();
+          await samplePage.getByLabel('Name or private label').fill('Preview date');
+          await samplePage.getByLabel('Consistency over time: 5 out of 5').click();
+          await samplePage.getByRole('button', { name: 'Save this decision' }).click();
+          await samplePage.getByText('Your saved history').waitFor();
+          await samplePage.getByText('Preview date').waitFor();
+          await samplePage.getByRole('tab', { name: /Scripts/ }).click();
+          await samplePage.getByText('Personal Script Vault').waitFor();
+          await samplePage.getByRole('tab', { name: /My Map/ }).click();
+          await samplePage.getByText('The answers shaping this Reset').waitFor();
+          await samplePage.close();
+
+          const checkoutButton = page.getByRole('button', { name: /Start My Secure Love Reset/ });
+          await checkoutButton.scrollIntoViewIfNeeded();
+          await checkoutButton.click();
+          const outcome = await Promise.race([
+            page.waitForURL(/checkout\.stripe\.com/, { timeout: 25_000 }).then(() => 'stripe'),
+            page.getByRole('alert').waitFor({ state: 'visible', timeout: 25_000 }).then(() => 'error'),
+          ]);
+          if (outcome === 'error') {
+            const errorText = await page.getByRole('alert').innerText();
+            throw new Error(`Checkout handoff failed: ${errorText}`);
+          }
+          assert.match(page.url(), /checkout\.stripe\.com/, 'Checkout did not navigate to Stripe');
+
+          const actionableConsoleErrors = consoleErrors.filter(
+            (message) => !/favicon|third-party cookie|Failed to load resource.*facebook/i.test(message),
+          );
+          assert.deepEqual(actionableConsoleErrors, [], `Browser console errors: ${actionableConsoleErrors.join(' | ')}`);
+          await browser.close();
+          JS
+          node .preview-e2e.mjs
+
+      - name: Upload browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revela-final-preview-browser-check
+          path: preview-artifacts
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Remove one-time workflow
+        if: always()
+        run: |
+          rm -f .preview-e2e.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/preview-e2e.yml
+          git commit -m 'Remove one-time final preview verification workflow'
+          git push origin HEAD:codex/revela-offer-and-trust-overhaul
