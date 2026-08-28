@@ -1,0 +1,142 @@
+name: Final client and routing hardening
+
+on:
+  push:
+    branches:
+      - codex/revela-offer-and-trust-overhaul
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/revela-offer-and-trust-overhaul
+          fetch-depth: 0
+
+      - name: Apply final security and compatibility patches
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          tracker = Path('src/lib/tracker.ts')
+          text = tracker.read_text()
+          old = "export function getToken(): string {\n  let t = localStorage.getItem(TOKEN_KEY);\n  if (!t) {\n    t = 'rv_' + Math.random().toString(36).slice(2) + Date.now().toString(36);\n    localStorage.setItem(TOKEN_KEY, t);\n  }\n  return t;\n}"
+          new = """let memoryToken: string | null = null;
+
+function createSecureToken(): string {
+  const webCrypto = globalThis.crypto;
+  if (!webCrypto?.getRandomValues) {
+    throw new Error('A secure browser context is required to create a Revela session.');
+  }
+  const bytes = new Uint8Array(24);
+  webCrypto.getRandomValues(bytes);
+  return `rv_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+}
+
+export function getToken(): string {
+  if (memoryToken) return memoryToken;
+  try {
+    const stored = localStorage.getItem(TOKEN_KEY);
+    if (stored && /^rv_[a-z0-9]{8,60}$/i.test(stored)) {
+      memoryToken = stored;
+      return stored;
+    }
+  } catch {
+    // A memory-only session still works when browser storage is unavailable.
+  }
+
+  memoryToken = createSecureToken();
+  try {
+    localStorage.setItem(TOKEN_KEY, memoryToken);
+  } catch {
+    // Keep the cryptographically secure token in memory for this page session.
+  }
+  return memoryToken;
+}"""
+          if old not in text:
+            raise SystemExit('Expected legacy token generator was not found')
+          tracker.write_text(text.replace(old, new, 1))
+
+          quiz = Path('src/components/Quiz.tsx')
+          text = quiz.read_text()
+          old = """                rows={5}
+                maxLength={800}
+                className="w-full resize-none rounded-2xl border border-[#751545]/20 bg-white/75 p-5 text-[15.5px] leading-relaxed text-[#3d0b26] outline-none focus:border-[#751545]"
+              />
+              <button onClick={() => setFreeMode(false)} className="mt-3 text-[12.5px] text-[#751545]/55 underline underline-offset-2">"""
+          new = """                rows={5}
+                maxLength={300}
+                className="w-full resize-none rounded-2xl border border-[#751545]/20 bg-white/75 p-5 text-[15.5px] leading-relaxed text-[#3d0b26] outline-none focus:border-[#751545]"
+              />
+              <div className="mt-3 flex items-center justify-between gap-4">
+                <button onClick={() => setFreeMode(false)} className="text-[12.5px] text-[#751545]/55 underline underline-offset-2">"""
+          if old not in text:
+            raise SystemExit('Expected free-choice textarea block was not found')
+          text = text.replace(old, new, 1)
+          old_close = """                ← Back to choices
+              </button>
+            </div>
+          )}"""
+          new_close = """                  ← Back to choices
+                </button>
+                <p className="text-[11px] tabular-nums text-[#751545]/35">{value.length}/300</p>
+              </div>
+            </div>
+          )}"""
+          if old_close not in text:
+            raise SystemExit('Expected free-choice textarea closing block was not found')
+          quiz.write_text(text.replace(old_close, new_close, 1))
+
+          vercel = Path('vercel.json')
+          text = vercel.read_text()
+          old = """  "rewrites": [
+    { "source": "/api/stripe-webhook", "destination": "/api/stripe-webhook" },
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]"""
+          new = """  "rewrites": [
+    { "source": "/api/((?!stripe-webhook).*)", "destination": "/api/index" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]"""
+          if old not in text:
+            raise SystemExit('Expected Vercel rewrite block was not found')
+          vercel.write_text(text.replace(old, new, 1))
+
+          Path('.github/workflows/final-client-hardening.yml').unlink()
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Test
+        run: npm run test -- --passWithNoTests
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build web and API functions
+        run: npm run build
+
+      - name: Commit verified patches
+        run: |
+          git checkout -- api/index.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/lib/tracker.ts src/components/Quiz.tsx vercel.json .github/workflows/final-client-hardening.yml
+          git commit -m 'Harden session tokens, answer limits, and API routing'
+          git push origin HEAD:codex/revela-offer-and-trust-overhaul
