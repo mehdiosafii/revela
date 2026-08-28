@@ -103,7 +103,7 @@ function toView(report: BuiltInReport, deep: DeepReport | null, answers: Answers
       `Your answers suggest that the important moment is not only who you meet, but what you do when certainty changes. ${snapshot.loop[0]} ${snapshot.loop[1]}`,
       'That response may have protected you before. The purpose of this Reset is not to judge it; it is to help you notice it early enough to choose deliberately.',
     ],
-    corePattern: snapshot.loop,
+    corePattern: [...snapshot.loop],
     rootCause: [
       childhoodDetails
         ? `You shared that ${childhoodDetails}. Those experiences may influence what feels familiar or safe now, but this is a possible connection rather than a statement of fact. The useful question is whether the old response still serves the relationship you want today.`
