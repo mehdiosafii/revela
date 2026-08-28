@@ -1,94 +1,95 @@
-import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
-import { TRPCError } from "@trpc/server";
-import { env } from "../lib/env";
+import { TRPCError } from '@trpc/server';
+import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import { purchases } from '../../db/schema';
+import { env } from '../lib/env';
+import { createRouter, publicQuery } from '../middleware';
+import { getDb } from './connection';
 
-/**
- * Personalized report illustrations via Gemini image editing.
- * The visitor's photo is passed through in-memory only: request -> Gemini -> response.
- * It is never written to the database or any storage.
- */
-
-const GEMINI_MODEL = "gemini-2.5-flash-image";
+const GEMINI_MODEL = 'gemini-2.5-flash-image';
+const DATA_URL = /^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/;
 
 const STYLE =
-  "Create a warm, tasteful, softly photorealistic editorial photograph. " +
-  "Preserve the exact facial identity, skin tone, and features of the woman in the provided photo — she must be clearly recognizable. " +
-  "Elegant modest styling, golden-hour light, gentle film grain, no text, no watermark, no logos.";
+  'Create a warm, tasteful editorial photograph for a private self-reflection workbook. ' +
+  'Preserve the recognizable facial identity, skin tone, and features of the woman in the provided photo. ' +
+  'Elegant modest styling, natural light, subtle film grain, no text, watermark, logo, wedding imagery, pregnancy imagery, or implied prediction.';
 
-export const SCENES: { id: string; prompt: string; caption: string }[] = [
+const SCENES = [
   {
-    id: "children",
+    id: 'parents',
     prompt:
-      "Show this woman a few years from now, laughing with her two young children in a bright sunlit kitchen on a weekend morning — flour on the counter, genuine joy.",
-    caption: "The morning she stopped wondering if it would ever happen",
+      'Show this woman seated in a calm living room looking through an old family photo album with a thoughtful, grounded expression. The scene represents viewing the past with adult perspective, not a literal memory.',
+    caption: 'Looking at the past with adult eyes',
   },
   {
-    id: "parents",
+    id: 'peace',
     prompt:
-      "Show this woman warmly embracing her parents in a family living room — reconciliation, softness, an old weight visibly gone from her shoulders.",
-    caption: "The embrace that closes the oldest chapter",
+      'Show this woman walking outdoors in warm late-afternoon light, calm and self-possessed, leaving a softly blurred path behind her. The mood is clarity after an emotional decision.',
+    caption: 'The pause between the trigger and the choice',
   },
   {
-    id: "peace",
+    id: 'children',
     prompt:
-      "Show this woman alone and radiant, walking away from a dim, blurred background toward warm light in an elegant coat — calm, self-possessed, unhurried.",
-    caption: "The walk away from the old pattern",
+      'Show this woman at a sunlit table writing in a notebook titled only through visual implication, surrounded by ordinary signs of a full life such as books, flowers, and coffee. No visible text in the image.',
+    caption: 'Building a life chosen deliberately',
   },
   {
-    id: "married",
+    id: 'clarity',
     prompt:
-      "Show this woman on her wedding day, radiant with happiness, in an elegant wedding dress holding a bouquet; her partner stands beside her turned slightly away in soft focus so she is the clear subject.",
-    caption: "The day the pattern is only a story she tells",
+      'Show this woman preparing for an evening out in an elegant mirror-lit room, composed and confident, checking in with herself before leaving. No partner, wedding dress, ring emphasis, or prediction.',
+    caption: 'Choosing from clarity, not urgency',
   },
-];
+] as const;
 
-const dataUrlRe = /^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/;
+async function requirePaidAccess(token: string) {
+  const db = getDb();
+  const [purchase] = await db
+    .select({ status: purchases.status })
+    .from(purchases)
+    .where(eq(purchases.sessionToken, token))
+    .limit(1);
+  if (purchase?.status !== 'paid') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Paid access is required for illustrations.' });
+  }
+}
 
-async function generateScene(
-  apiKey: string,
-  mimeType: string,
-  photoB64: string,
-  prompt: string,
-): Promise<string | null> {
-  const res = await fetch(
+async function generateScene(apiKey: string, mimeType: string, photoBase64: string, prompt: string): Promise<string | null> {
+  const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
     {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [
           {
             parts: [
               { text: `${STYLE}\n\n${prompt}` },
-              { inline_data: { mime_type: mimeType, data: photoB64 } },
+              { inline_data: { mime_type: mimeType, data: photoBase64 } },
             ],
           },
         ],
       }),
-      signal: AbortSignal.timeout(55000),
+      signal: AbortSignal.timeout(45_000),
     },
   );
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    console.error(`Gemini ${res.status}: ${errText.slice(0, 300)}`);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    console.error('Gemini illustration error', response.status, detail.slice(0, 240));
     return null;
   }
 
-  const data: any = await res.json();
-  const parts = data?.candidates?.[0]?.content?.parts ?? [];
+  const data = (await response.json()) as {
+    candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string }; inline_data?: { mime_type?: string; data?: string } }[] } }[];
+  };
+  const parts = data.candidates?.[0]?.content?.parts ?? [];
   for (const part of parts) {
-    const img = part.inlineData ?? part.inline_data;
-    if (img?.data) {
-      const outMime = img.mimeType ?? img.mime_type ?? "image/png";
-      return `data:${outMime};base64,${img.data}`;
+    const image = part.inlineData ?? part.inline_data;
+    if (image?.data) {
+      const outputMime = 'mimeType' in image ? image.mimeType : (image as { mime_type?: string }).mime_type;
+      return `data:${outputMime || 'image/png'};base64,${image.data}`;
     }
   }
-  console.error("Gemini: no image part in response");
   return null;
 }
 
@@ -96,38 +97,34 @@ export const illustrationsRouter = createRouter({
   generate: publicQuery
     .input(
       z.object({
-        token: z.string().min(8).max(128),
-        photo: z.string().max(9_000_000), // ~6.5MB binary as base64 data URL
+        token: z.string().min(8).max(64),
+        photo: z.string().max(4_500_000),
       }),
     )
     .mutation(async ({ input }) => {
+      await requirePaidAccess(input.token);
       if (!env.geminiApiKey) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "Illustrations are not configured",
-        });
+        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Optional illustrations are not configured.' });
       }
-      const m = input.photo.match(dataUrlRe);
-      if (!m) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid photo format" });
-      }
-      const mimeType = `image/${m[1] === "jpg" ? "jpeg" : m[1]}`;
-      const photoB64 = m[2];
+
+      const match = input.photo.match(DATA_URL);
+      if (!match) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid photo format.' });
+      const mimeType = `image/${match[1] === 'jpg' ? 'jpeg' : match[1]}`;
+      const photoBase64 = match[2];
 
       const results = await Promise.allSettled(
-        SCENES.map((s) => generateScene(env.geminiApiKey, mimeType, photoB64, s.prompt)),
+        SCENES.map((scene) => generateScene(env.geminiApiKey, mimeType, photoBase64, scene.prompt)),
       );
 
-      const images = SCENES.map((s, i) => {
-        const r = results[i];
-        return {
-          id: s.id,
-          caption: s.caption,
-          image: r.status === "fulfilled" ? r.value : null,
-        };
-      });
-
-      // Photo intentionally not persisted anywhere — it lives only in this request.
-      return { images };
+      return {
+        images: SCENES.map((scene, index) => {
+          const result = results[index];
+          return {
+            id: scene.id,
+            caption: scene.caption,
+            image: result.status === 'fulfilled' ? result.value : null,
+          };
+        }),
+      };
     }),
 });
