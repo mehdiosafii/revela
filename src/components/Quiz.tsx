@@ -171,7 +171,7 @@ export default function Quiz({ answers, setAnswers, initialStep, onDone, onHome 
                 onChange={(event) => setValue(event.target.value)}
                 placeholder="Say it honestly, in your own words…"
                 rows={5}
-                maxLength={800}
+                maxLength={300}
                 className="w-full resize-none rounded-2xl border border-[#751545]/20 bg-white/75 p-5 text-[15.5px] leading-relaxed text-[#3d0b26] outline-none focus:border-[#751545]"
               />
               <button onClick={() => setFreeMode(false)} className="mt-3 text-[12.5px] text-[#751545]/55 underline underline-offset-2">
