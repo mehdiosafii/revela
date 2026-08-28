@@ -3,7 +3,12 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist/public",
+  "functions": {
+    "api/index.mjs": { "maxDuration": 120 },
+    "api/stripe-webhook.mjs": { "maxDuration": 15 }
+  },
   "rewrites": [
+    { "source": "/api/stripe-webhook", "destination": "/api/stripe-webhook" },
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
