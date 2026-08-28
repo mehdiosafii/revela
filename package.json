@@ -16,7 +16,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "build:api": "esbuild server/vercel.ts --platform=node --bundle --format=esm --outfile=api/index.mjs --banner:js=\"import { createRequire } from 'module';const require = createRequire(import.meta.url);\" && esbuild server/stripe-webhook.ts --platform=node --bundle --format=esm --outfile=api/stripe-webhook.mjs --banner:js=\"import { createRequire } from 'module';const require = createRequire(import.meta.url);\""
+    "build:api": "esbuild server/vercel.ts --platform=node --bundle --format=esm --outfile=api/index.mjs --banner:js=\"import { createRequire } from 'module';const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@hono/node-server": "^1.14.3",
@@ -32,7 +32,7 @@
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-hover-card": "^1.1.15",
     "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-menubar": "^1.1.16",
+    "@radix-ui/react-menubar": "^2.1.16",
     "@radix-ui/react-navigation-menu": "^1.2.14",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-progress": "^1.1.8",
