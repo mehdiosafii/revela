@@ -1,13 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { buildReport, type Answers, type Report as BuiltInReport } from '../lib/engine';
-import { STRIPE_PAYMENT_LINK, UNLOCK_PRICE, UNLOCK_PRICE_ANCHOR } from '../lib/config';
-import { useIllustrations, Scene, ScenePhotoPrompt } from './Illustrations';
+import React from 'react';
+import {
+  buildReport,
+  scoreAnswers,
+  type Answers,
+  type Attachment,
+  type Report as BuiltInReport,
+} from '../lib/engine';
+import { OFFER_NAME, SUPPORT_EMAIL, UNLOCK_PRICE } from '../lib/config';
 import { fbTrack } from '../lib/fbpixel';
-import { REVIEWS } from '../lib/engine';
-import { trpc } from '@/providers/trpc';
 import { getToken } from '../lib/tracker';
+import { trpc } from '@/providers/trpc';
+import { Scene, ScenePhotoPrompt, useIllustrations } from './Illustrations';
+import ResetDashboard from './ResetDashboard';
 
-/* the Claude deep-reading shape (mirrors api/queries/report.ts) */
 export interface DeepReport {
   archetype: string;
   archetypeLine: string;
@@ -28,751 +33,589 @@ export interface DeepReport {
   closingLine: string;
 }
 
-/* unified view-model: deep report if present, built-in otherwise */
+type Notice = { tone: 'success' | 'warning' | 'error'; text: string } | null;
+
+interface Props {
+  answers: Answers;
+  deep?: DeepReport | null;
+  unlocked?: boolean;
+  premiumGenerating?: boolean;
+  notice?: Notice;
+}
+
 interface View {
   archetypeName: string;
   archetypeLine: string | null;
   headline: string;
-  openingLetter: string[] | null; // paragraphs (deep only)
-  subheadline: string; // built-in pattern summary
-  pattern: string[];
-  corePattern: string[] | null; // deep paragraphs
-  fatherWound: string;
-  rootCause: string[] | null; // deep paragraphs
-  realReason: string;
-  hiddenTruth: string[] | null;
+  opening: string[];
+  corePattern: string[];
+  rootCause: string[];
+  hiddenTruth: string[];
   herWords: string | null;
-  herWordsReflected: string[] | null;
+  herWordsReflected: string[];
   manSheNeeds: string[];
   path: { title: string; text: string }[];
   closingLine: string | null;
 }
 
-function toView(r: BuiltInReport, deep: DeepReport | null): View {
-  // AI payloads are untrusted — coerce anything into string paragraphs
-  const paras = (s: unknown): string[] =>
-    typeof s === 'string'
-      ? s.split(/\n+/).filter(Boolean)
-      : Array.isArray(s)
-        ? s.filter((x): x is string => typeof x === 'string')
-        : [];
+const paragraphs = (value: unknown): string[] =>
+  typeof value === 'string'
+    ? value.split(/\n+/).map((item) => item.trim()).filter(Boolean)
+    : Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      : [];
+
+function toView(report: BuiltInReport, deep: DeepReport | null, answers: Answers): View {
   if (deep) {
     return {
-      archetypeName: deep.archetype,
-      archetypeLine: deep.archetypeLine,
-      headline: deep.headline,
-      openingLetter: paras(deep.openingLetter),
-      subheadline: r.subheadline,
-      pattern: r.pattern,
-      corePattern: paras(deep.corePattern),
-      fatherWound: r.fatherWound,
-      rootCause: paras(deep.rootCause),
-      realReason: r.realReason,
-      hiddenTruth: paras(deep.hiddenTruth),
-      herWords: r.herWords,
-      herWordsReflected: paras(deep.herWordsReflected),
-      manSheNeeds: Array.isArray(deep.manSheNeeds)
-        ? deep.manSheNeeds.filter((x): x is string => typeof x === 'string')
-        : [],
-      path: Array.isArray(deep.ninetyDayPath)
-        ? deep.ninetyDayPath
-            .filter((p): p is { title: string; text: string } => !!p && typeof p === 'object')
-            .map((p) => ({ title: typeof p.title === 'string' ? p.title : '', text: typeof p.text === 'string' ? p.text : '' }))
-        : [],
-      closingLine: deep.closingLine,
+      archetypeName: deep.archetype || report.styleName,
+      archetypeLine: deep.archetypeLine || null,
+      headline: deep.headline || report.headline,
+      opening: paragraphs(deep.openingLetter),
+      corePattern: paragraphs(deep.corePattern),
+      rootCause: paragraphs(deep.rootCause),
+      hiddenTruth: paragraphs(deep.hiddenTruth),
+      herWords: report.herWords,
+      herWordsReflected: paragraphs(deep.herWordsReflected),
+      manSheNeeds: Array.isArray(deep.manSheNeeds) ? deep.manSheNeeds : report.manSheNeeds,
+      path: Array.isArray(deep.ninetyDayPath) && deep.ninetyDayPath.length ? deep.ninetyDayPath : report.path,
+      closingLine: deep.closingLine || null,
     };
   }
+
+  const snapshot = snapshotFor(report.style, answers);
+  const headlines: Record<Attachment, string> = {
+    anxious: 'More effort is not always more safety.',
+    avoidant: 'Protection can quietly become distance.',
+    fearful: 'Intensity and emotional safety are not the same thing.',
+    secure: 'Caution deserves examination too.',
+  };
+  const childhoodDetails = [
+    answers.home_climate && `your home felt “${answers.home_climate}”`,
+    answers.father_figure && `your father or father figure was “${answers.father_figure}”`,
+    answers.child_comfort && `when you needed comfort, “${answers.child_comfort}”`,
+  ].filter(Boolean).join('; ');
+
   return {
-    archetypeName: r.styleName,
-    archetypeLine: null,
-    headline: r.headline,
-    openingLetter: null,
-    subheadline: r.subheadline,
-    pattern: r.pattern,
-    corePattern: null,
-    fatherWound: r.fatherWound,
-    rootCause: null,
-    realReason: r.realReason,
-    hiddenTruth: null,
-    herWords: r.herWords,
-    herWordsReflected: null,
-    manSheNeeds: r.manSheNeeds,
-    path: r.path,
-    closingLine: null,
+    archetypeName: report.styleName,
+    archetypeLine: 'A practical pattern hypothesis based on the responses you selected—not a diagnosis or identity.',
+    headline: headlines[report.style],
+    opening: [
+      `Your answers suggest that the important moment is not only who you meet, but what you do when certainty changes. ${snapshot.loop[0]} ${snapshot.loop[1]}`,
+      'That response may have protected you before. The purpose of this Reset is not to judge it; it is to help you notice it early enough to choose deliberately.',
+    ],
+    corePattern: [...snapshot.loop],
+    rootCause: [
+      childhoodDetails
+        ? `You shared that ${childhoodDetails}. Those experiences may influence what feels familiar or safe now, but this is a possible connection rather than a statement of fact. The useful question is whether the old response still serves the relationship you want today.`
+        : 'People often learn protective relationship responses from repeated experiences, but your answers do not establish one single cause. Focus on the present-day trigger and the response you can observe and change.',
+    ],
+    hiddenTruth: [
+      snapshot.blindSpot,
+      'A blind spot is not a character flaw. Once it becomes observable, you can slow the moment down, ask for clearer information, and choose from evidence instead of urgency or protection.',
+    ],
+    herWords: report.herWords,
+    herWordsReflected: [],
+    manSheNeeds: [
+      'Someone whose interest is visible in consistent plans and follow-through, so you do not have to interpret occasional intensity as commitment.',
+      'Someone who answers direct questions directly and can name what he wants without keeping the connection useful only when it suits him.',
+      'Someone who respects your pace and boundaries without punishing you with withdrawal, pressure, mockery, or sudden coldness.',
+      'Someone who stays respectful during disagreement, returns to unresolved conversations, and treats repair as a shared responsibility.',
+    ],
+    path: [
+      { title: 'Weeks 1–2 · Notice Before Acting', text: `Track the first physical and emotional signs of your trigger. Before reacting, wait until the intensity drops and use this sentence once: ${snapshot.script}` },
+      { title: 'Weeks 3–6 · Evaluate Observable Behavior', text: 'After each meaningful interaction, write down what was promised, what actually happened, and how you felt afterward. A green flag is consistent follow-through; a red flag is clarity appearing only when you begin to leave.' },
+      { title: 'Weeks 7–12 · Practice Clear Selection', text: 'Name what you are looking for, ask what the other person is genuinely available for, and compare the answer with behavior over time. Continue when words and actions align; slow down or leave when ambiguity becomes the repeated structure.' },
+    ],
+    closingLine: 'The goal is not to become fearless. It is to make the next choice with more information than the last one.',
   };
 }
 
-/* render *emphasis* markers from report text as real italics */
-function em(text: unknown): React.ReactNode {
+function emphasis(text: unknown): React.ReactNode {
   const parts = (typeof text === 'string' ? text : '').split(/\*([^*]+)\*/g);
-  return parts.map((part, i) =>
-    i % 2 === 1 ? <em key={i} className="italic">{part}</em> : <React.Fragment key={i}>{part}</React.Fragment>,
+  return parts.map((part, index) =>
+    index % 2 === 1 ? <em key={index}>{part}</em> : <React.Fragment key={index}>{part}</React.Fragment>,
   );
 }
 
-/* ── REAL 12h finisher deadline — anchored server-side when she finished ── */
-function useDeadline(): { label: string | null; expired: boolean } {
-  const q = trpc.public.deadline.useQuery(
-    { token: getToken() },
-    {
-      // poll fast until the server anchor exists (the first report ping can be
-      // retried by the heartbeat), then settle into a slow refresh
-      refetchInterval: (query) => (query.state.data?.deadline ? 60000 : 10000),
-      retry: false,
+function NoticeBanner({ notice }: { notice: Notice }) {
+  if (!notice) return null;
+  const classes = {
+    success: 'border-[#2f7d57]/20 bg-[#edf8f1] text-[#245f43]',
+    warning: 'border-[#a77a1f]/20 bg-[#fff8e7] text-[#725514]',
+    error: 'border-[#a83d3d]/20 bg-[#fff0f0] text-[#7a2d2d]',
+  }[notice.tone];
+  return <div className={`mx-auto mb-8 max-w-3xl rounded-2xl border px-5 py-4 text-center text-sm leading-relaxed ${classes}`}>{notice.text}</div>;
+}
+
+function snapshotFor(style: Attachment, answers: Answers) {
+  const response = answers.he_pulls_away || 'your usual response when communication changes';
+  const conflict = answers.conflict_style || 'your usual conflict response';
+  const exPattern = answers.exes_pattern || 'the pattern across previous partners';
+
+  const base = {
+    anxious: {
+      loop: [
+        `Intensity or inconsistency creates urgency, especially when ${exPattern.toLowerCase()}.`,
+        `When closeness changes, your instinct becomes “${response},” so uncertainty receives more energy than consistency.`,
+        'You may invest before enough evidence exists, then experience the loss as proof that you cared too much.',
+      ],
+      trigger: 'A noticeable change in attention, texting, warmth, or certainty after you have started to hope.',
+      blindSpot: 'The effort you use to preserve a connection can prevent you from evaluating whether the connection is preserving you.',
+      nextMove: 'When communication changes, wait until your body is calm. Then ask one direct question once—without sending a second message to manage the answer.',
+      script: '“I noticed the communication changed. I value consistency, so I wanted to ask directly whether you still want to continue getting to know each other.”',
     },
-  );
-  const [label, setLabel] = useState('');
-  const [expired, setExpired] = useState(false);
-  const dl = q.data?.deadline ?? null;
+    avoidant: {
+      loop: [
+        'You feel safest while interest remains possible but not yet demanding.',
+        `When closeness asks something of you, your instinct becomes “${response},” and distance restores a sense of control.`,
+        `During conflict, “${conflict}” can make a solvable moment feel like evidence that the entire relationship is wrong.`,
+      ],
+      trigger: 'A partner needing reassurance, naming a feeling, or asking for greater clarity and consistency.',
+      blindSpot: 'A calm, available person can feel less compelling precisely because your nervous system has nothing to solve or escape.',
+      nextMove: 'Before ending or withdrawing, name one specific concern and allow the other person one real opportunity to respond.',
+      script: '“Part of me wants to pull away right now. I would rather tell you what felt difficult and see whether we can understand it together.”',
+    },
+    fearful: {
+      loop: [
+        'Strong chemistry creates rapid closeness, but closeness also raises the cost of being hurt.',
+        `When the emotional weather changes, “${response}” becomes a protection strategy rather than a deliberate choice.`,
+        `Conflict can activate “${conflict},” creating the very instability your protective side was trying to prevent.`,
+      ],
+      trigger: 'Mixed signals: enough warmth to create hope, followed by enough distance to create fear.',
+      blindSpot: 'Intensity can feel like evidence of importance even when it is actually evidence of unpredictability.',
+      nextMove: 'Slow the pace after a strong emotional spike. Make no major relationship decision while activated; return to observable behavior the next day.',
+      script: '“I care about this, and I am too activated to discuss it well tonight. I want to return to it tomorrow when I can be clear instead of reactive.”',
+    },
+    secure: {
+      loop: [
+        'You can communicate and care well, but caution may quietly dominate selection.',
+        'You may dismiss a steady connection before curiosity has enough time to become attraction.',
+        'The result is not chaos—it is a series of reasonable exits that may protect you from discovering what could deepen slowly.',
+      ],
+      trigger: 'A promising person who feels calm but does not produce immediate certainty or dramatic chemistry.',
+      blindSpot: 'Discernment and premature disqualification can sound almost identical in your own head.',
+      nextMove: 'When there is respect, attraction, and emotional availability—but no instant fireworks—allow three dates before making a final judgment.',
+      script: '“I am interested in getting to know you, and I prefer letting something real unfold instead of forcing instant certainty.”',
+    },
+  } as const;
 
-  useEffect(() => {
-    if (!dl) return;
-    const tick = () => {
-      const ms = dl - Date.now();
-      if (ms <= 0) {
-        setLabel('00h 00m 00s');
-        setExpired(true);
-        return;
-      }
-      const h = Math.floor(ms / 3600000);
-      const m = Math.floor((ms % 3600000) / 60000);
-      const s = Math.floor((ms % 60000) / 1000);
-      setLabel(
-        `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`,
-      );
-    };
-    tick();
-    const iv = setInterval(tick, 1000);
-    return () => clearInterval(iv);
-  }, [dl]);
-
-  return { label: dl ? label : null, expired };
+  return base[style];
 }
 
-function useReveal() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [seen, setSeen] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([e]) => e.isIntersecting && (setSeen(true), io.disconnect()),
-      { threshold: 0.12 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  return { ref, seen };
-}
-
-function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, seen } = useReveal();
-  return (
-    <div
-      ref={ref}
-      className={className}
-      style={{
-        opacity: seen ? 1 : 0,
-        transform: seen ? 'translateY(0)' : 'translateY(30px)',
-        transition: `opacity 0.9s cubic-bezier(0.22,1,0.36,1) ${delay}ms, transform 0.9s cubic-bezier(0.22,1,0.36,1) ${delay}ms`,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Stars({ size = 'text-sm' }: { size?: string }) {
-  return (
-    <span className={`inline-flex gap-0.5 text-[#edc840] ${size}`}>
-      {'★★★★★'.split('').map((s, i) => <span key={i}>{s}</span>)}
-    </span>
-  );
-}
-
-/* the unlock button — used in the overlay, sticky bar, and bottom close */
-function UnlockButton({ sub }: { sub?: string }) {
-  return (
-    <div className="text-center">
-      <a
-        href={STRIPE_PAYMENT_LINK}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={() => fbTrack('InitiateCheckout', { value: 9.99, currency: 'USD' })}
-        className="btn-shine group inline-flex items-center justify-center gap-2.5 whitespace-nowrap rounded-full px-8 py-4 text-[15px] font-semibold text-white md:text-base"
-      >
-        <span className="flex h-5 w-5 items-center justify-center">🔓</span>
-        <span>Unlock My Full Report — {UNLOCK_PRICE}</span>
-        <span className="transition-transform duration-300 group-hover:translate-x-1.5">→</span>
-      </a>
-      {sub && <p className="mt-3.5 text-[12px] text-[#751545]/55">{sub}</p>}
-    </div>
-  );
-}
-
-/* ── one reading block in the unlocked full report ── */
-function Reading({
-  numeral, title, subtitle, children,
+function Section({
+  eyebrow,
+  title,
+  children,
+  className = '',
 }: {
-  numeral: string; title: string; subtitle?: string; children: React.ReactNode;
+  eyebrow: string;
+  title: string;
+  children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="print-block mx-auto max-w-3xl px-6 pt-16 md:px-0">
-      <div className="flex items-baseline gap-4">
-        <span className="font-display shrink-0 text-2xl font-medium text-[#c9a24b]">{numeral}</span>
-        <div>
-          <h2 className="font-display text-2xl font-medium text-[#3d0b26] md:text-3xl">{title}</h2>
-          {subtitle && <p className="mt-1 text-[12px] uppercase tracking-[0.22em] text-[#751545]/50">{subtitle}</p>}
-        </div>
-      </div>
-      <div className="mt-2 h-px w-full bg-gradient-to-r from-[#c9a24b]/40 via-[#751545]/15 to-transparent" />
-      <div className="mt-7 flex flex-col gap-4">{children}</div>
+    <section className={`print-block mx-auto max-w-3xl px-6 pt-16 md:px-0 ${className}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#c4688a]">{eyebrow}</p>
+      <h2 className="font-display mt-3 text-2xl font-medium text-[#3d0b26] md:text-3xl">{title}</h2>
+      <div className="mt-3 h-px bg-gradient-to-r from-[#c9a24b]/50 via-[#751545]/15 to-transparent" />
+      <div className="mt-7 space-y-4">{children}</div>
     </section>
   );
 }
 
-function Paras({ items, tone }: { items: string[]; tone?: string }) {
+function Paragraphs({ items }: { items: string[] }) {
   return (
     <>
-      {items.map((p, i) => (
-        <p key={i} className={`text-[15.5px] leading-[1.85] ${tone ?? 'text-[#4a1230]/85'}`}>
-          {tone ? p : em(p)}
-        </p>
+      {items.map((paragraph, index) => (
+        <p key={index} className="text-[15.5px] leading-[1.85] text-[#4a1230]/85">{emphasis(paragraph)}</p>
       ))}
     </>
   );
 }
 
-/* ── the UNLOCKED full report: everything, unblurred, printable as PDF ── */
-function FullReport({ answers, deep }: { answers: Answers; deep: DeepReport | null }) {
-  const illus = useIllustrations(answers);
-  const r = buildReport(answers);
-  const v = toView(r, deep);
-  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+function CheckoutButton({ className = '' }: { className?: string }) {
+  const checkout = trpc.checkout.create.useMutation();
 
-  useEffect(() => {
-    const prev = document.title;
-    document.title = `${r.name} — Revela Personal Report`;
-    return () => { document.title = prev; };
-  }, [r.name]);
-
-  const download = () => window.print();
-
-  const downloadBtn = (
-    <button
-      onClick={download}
-      className="btn-shine group inline-flex items-center gap-2.5 whitespace-nowrap rounded-full px-7 py-3.5 text-[14.5px] font-semibold text-white"
-    >
-      <span>⤓</span> Download my report as PDF
-    </button>
-  );
+  const startCheckout = () => {
+    fbTrack('InitiateCheckout', { value: 29, currency: 'USD' });
+    checkout.mutate(
+      { token: getToken() },
+      {
+        onSuccess: (result) => window.location.assign(result.url),
+      },
+    );
+  };
 
   return (
-    <div className="bg-grain min-h-screen pb-16">
-      {/* ── header with download ── */}
-      <header className="no-print sticky top-0 z-50 border-b border-[#751545]/10 bg-[#fbf5ef]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <div className="flex items-baseline gap-1">
-            <span className="font-display text-2xl font-semibold tracking-tight text-[#3d0b26]">Revela</span>
-            <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#c9a24b]">Personal Report</span>
+    <div className={className}>
+      <button
+        onClick={startCheckout}
+        disabled={checkout.isPending}
+        className={`btn-shine inline-flex min-h-[56px] items-center justify-center rounded-full px-8 py-4 text-[15px] font-semibold text-white transition-opacity ${checkout.isPending ? 'cursor-wait opacity-60' : ''}`}
+      >
+        {checkout.isPending ? 'Opening secure checkout…' : `Start My Secure Love Reset — ${UNLOCK_PRICE}`}
+      </button>
+      <p className="mt-3 text-[12px] text-[#751545]/55">One payment · immediate access · no subscription · 30-day guarantee</p>
+      {checkout.error && (
+        <p role="alert" className="mx-auto mt-3 max-w-md text-[12.5px] leading-relaxed text-[#9c2b2b]">
+          Secure checkout could not be opened. Please refresh and try again, or contact {SUPPORT_EMAIL}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PatternScore({ answers }: { answers: Answers }) {
+  const { scores } = scoreAnswers(answers);
+  const labels: Record<Attachment, string> = {
+    anxious: 'Pursuit',
+    avoidant: 'Protection',
+    fearful: 'Push–pull',
+    secure: 'Steady connection',
+  };
+  const scoreValues = Object.values(scores) as number[];
+  const maximum = Math.max(1, ...scoreValues);
+
+  return (
+    <div className="mt-8 grid gap-3 sm:grid-cols-2">
+      {(Object.keys(scores) as Attachment[]).map((key) => (
+        <div key={key} className="rounded-2xl border border-[#751545]/10 bg-white/75 px-5 py-4">
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="font-semibold text-[#3d0b26]">{labels[key]}</span>
+            <span className="tabular-nums text-[#751545]/50">{scores[key]}</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#c9a24b]/20 px-3 py-1 text-[11px] font-semibold text-[#751545]">Unlocked ✓</span>
-            {downloadBtn}
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#751545]/10">
+            <div className="h-full rounded-full bg-gradient-to-r from-[#751545] to-[#c4688a]" style={{ width: `${Math.round((scores[key] / maximum) * 100)}%` }} />
           </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FreeSnapshot({ answers, notice }: { answers: Answers; notice: Notice }) {
+  const report = buildReport(answers);
+  const snapshot = snapshotFor(report.style, answers);
+  const safeHeadline: Record<Attachment, string> = {
+    anxious: 'More effort is not always more safety.',
+    avoidant: 'Protection can quietly become distance.',
+    fearful: 'Intensity and emotional safety are not the same thing.',
+    secure: 'Caution deserves examination too.',
+  };
+
+  return (
+    <div className="bg-grain min-h-screen pb-24">
+      <header className="border-b border-[#751545]/10 bg-[#fbf5ef]/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+          <div className="flex items-baseline gap-2">
+            <span className="font-display text-2xl font-semibold text-[#3d0b26]">Revela</span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#c9a24b]">Pattern Snapshot</span>
+          </div>
+          <span className="rounded-full bg-[#2f7d57]/10 px-3 py-1 text-[11px] font-semibold text-[#2f7d57]">Free result ✓</span>
         </div>
       </header>
 
-      {/* ── cover ── */}
-      <section className="px-6 pb-6 pt-16 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Prepared exclusively for</p>
-        <h1 className="font-display mt-4 text-4xl font-medium text-[#3d0b26] md:text-5xl">
-          {r.name} {r.zodiac && <span className="text-3xl text-[#c9a24b]">{r.zodiac.symbol}</span>}
-        </h1>
-        <p className="mt-3 text-[13px] uppercase tracking-[0.2em] text-[#751545]/55">
-          {r.age ? `${r.age} years old` : ''}{r.age && r.zodiac ? ' · ' : ''}{r.zodiac ? `${r.zodiac.sign} · ${r.zodiac.element} sign` : ''}{' · '}{today}
-        </p>
-        <div className="gold-ring mx-auto mt-10 max-w-xl rounded-[2rem] bg-white/80 p-9">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Your archetype</p>
-          <h2 className="font-display mt-3 text-3xl font-medium text-[#751545]">{v.archetypeName}</h2>
-          {v.archetypeLine && <p className="mt-2 text-[14px] italic text-[#4a1230]/60">{v.archetypeLine}</p>}
-          <p className="font-display mt-5 text-xl font-light italic leading-relaxed text-[#3d0b26]">“{v.headline}”</p>
-        </div>
-        <div className="no-print mt-8">{downloadBtn}</div>
-      </section>
+      <main className="px-5 pb-10 pt-12 sm:px-6">
+        <NoticeBanner notice={notice} />
+        <section className="mx-auto max-w-3xl text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Prepared for {report.name}</p>
+          <h1 className="font-display mt-5 text-4xl font-medium leading-tight text-[#3d0b26] md:text-5xl">Your Pattern Snapshot</h1>
+          <p className="mx-auto mt-5 max-w-2xl text-[15px] leading-relaxed text-[#4a1230]/68">
+            This is an educational reflection based on your answers—not a diagnosis, prediction, or final verdict about you.
+          </p>
 
-      {/* ── Reading I — the letter ── */}
-      <Reading numeral="I" title={v.openingLetter ? 'A letter to you' : 'What your answers revealed'} subtitle="Read this first, slowly">
-        <Paras items={v.openingLetter ?? [v.subheadline]} />
-      </Reading>
+          <div className="gold-ring mx-auto mt-10 rounded-[2rem] bg-white/85 p-8 text-left shadow-[0_28px_80px_-55px_rgba(61,11,38,.55)] sm:p-10">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#c9a24b]">Your strongest pattern</p>
+            <h2 className="font-display mt-3 text-3xl font-medium text-[#751545]">{report.styleName}</h2>
+            <p className="font-display mt-5 text-xl font-light italic leading-relaxed text-[#3d0b26]">“{safeHeadline[report.style]}”</p>
+            <p className="mt-6 text-[15px] leading-[1.75] text-[#4a1230]/78">{snapshot.loop[0]} {snapshot.loop[1]}</p>
+            <PatternScore answers={answers} />
+          </div>
+        </section>
 
-      <ScenePhotoPrompt state={illus} name={answers.name} />
-
-      {/* ── Reading II — the loop ── */}
-      <Reading numeral="II" title="The loop you keep running" subtitle="Your core pattern, named">
-        {v.corePattern ? <Paras items={v.corePattern} /> : (
-          <ul className="flex flex-col gap-3">
-            {v.pattern.map((p, i) => (
-              <li key={i} className="flex gap-3 text-[15.5px] leading-[1.8] text-[#4a1230]/85">
-                <span className="mt-1 shrink-0 text-[#c9a24b]">◆</span><span>{em(p)}</span>
+        <Section eyebrow="01 · The recurring loop" title="What may be repeating">
+          <ol className="space-y-3">
+            {snapshot.loop.map((item, index) => (
+              <li key={item} className="flex gap-4 rounded-2xl border border-[#751545]/10 bg-white/75 p-5 text-[15px] leading-relaxed text-[#4a1230]/82">
+                <span className="font-display text-lg text-[#c9a24b]">{index + 1}</span>
+                <span>{item}</span>
               </li>
             ))}
-          </ul>
-        )}
-      </Reading>
-
-      {/* ── Reading III — the root ── */}
-      <div className="print-break" />
-      <Reading numeral="III" title="Where it started" subtitle="The root — father, home, and the little girl's logic">
-        {v.rootCause ? <Paras items={v.rootCause} /> : <Paras items={[v.fatherWound]} />}
-      </Reading>
-
-      <Scene id="parents" state={illus} />
-
-      {/* ── Reading IV — the revelation ── */}
-      <Reading numeral="IV" title="The revelation" subtitle="Why you're still single — said plainly">
-        {v.hiddenTruth ? <Paras items={v.hiddenTruth} /> : <Paras items={[v.realReason]} />}
-      </Reading>
-
-      {/* ── her words, reflected ── */}
-      {(v.herWordsReflected || v.herWords) && (
-        <section className="print-block mx-auto max-w-3xl px-6 pt-16 md:px-0">
-          <div className="rounded-[1.8rem] bg-[#3d0b26] px-8 py-10 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">You told us</p>
-            <p className="font-display mx-auto mt-5 max-w-xl text-2xl font-light italic leading-relaxed text-[#fbf5ef]">
-              “{v.herWords ?? ''}”
-            </p>
-            <div className="mx-auto mt-6 h-px w-16 bg-[#c9a24b]/40" />
-            <div className="mx-auto mt-6 max-w-xl text-[14.5px] leading-[1.8]">
-              <Paras items={v.herWordsReflected ?? []} tone="text-[#fbf5ef]/80" />
-            </div>
-          </div>
-        </section>
-      )}
-
-      <Scene id="peace" state={illus} />
-
-      {/* ── Reading V — who to choose ── */}
-      <Reading numeral="V" title="The man who would actually work for you" subtitle="Four traits — not the one you keep choosing">
-        <ul className="flex flex-col gap-3">
-          {v.manSheNeeds.map((m, i) => (
-            <li key={i} className="flex gap-3 text-[15.5px] leading-[1.8] text-[#4a1230]/85">
-              <span className="mt-1 shrink-0 text-[#c9a24b]">◆</span><span>{em(m)}</span>
-            </li>
-          ))}
-        </ul>
-      </Reading>
-
-      {/* ── field guide — scripts + flags (deep only) ── */}
-      {deep?.fieldGuide && (
-        <Reading numeral="V½" title="Your field guide" subtitle="Exact words for the moments your pattern takes over">
-          {deep.fieldGuide.scripts.map((sc, i) => (
-            <div key={i} className="mt-6 rounded-2xl border border-[#751545]/10 bg-white/80 p-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#c4688a]">{sc.situation}</p>
-              <p className="mt-3 text-[15px] leading-relaxed text-[#3d0b26]"><span className="font-semibold text-[#1d7a4f]">Say this:</span> “{sc.sayThis}”</p>
-              {sc.notThis && <p className="mt-2 text-[14px] leading-relaxed text-[#4a1230]/70"><span className="font-semibold text-[#9c2b2b]">Not this:</span> {sc.notThis}</p>}
-            </div>
-          ))}
-          {(deep.fieldGuide.greenFlags.length > 0 || deep.fieldGuide.redFlags.length > 0) && (
-            <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
-              {deep.fieldGuide.greenFlags.length > 0 && (
-                <div className="rounded-2xl border border-[#1d7a4f]/20 bg-[#f2f9f4] p-6">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#1d7a4f]">Green flags — for you specifically</p>
-                  <ul className="mt-4 space-y-3">
-                    {deep.fieldGuide.greenFlags.map((f, i) => (
-                      <li key={i} className="text-[14px] leading-relaxed text-[#2a4a38]">✓ {f}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {deep.fieldGuide.redFlags.length > 0 && (
-                <div className="rounded-2xl border border-[#9c2b2b]/20 bg-[#faf2f2] p-6">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9c2b2b]">Red flags — your type, early</p>
-                  <ul className="mt-4 space-y-3">
-                    {deep.fieldGuide.redFlags.map((f, i) => (
-                      <li key={i} className="text-[14px] leading-relaxed text-[#4a2a2a]">✗ {f}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </Reading>
-      )}
-
-      {/* ── Reading VI — the 90-day path ── */}
-      <div className="print-break" />
-      <Reading numeral="VI" title="Your 90-day path" subtitle="Three named phases, from pattern to proposal">
-        {v.path.map((p, i) => (
-          <div key={i} className="rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-5">
-            <p className="font-display text-[17px] font-medium text-[#751545]">{p.title}</p>
-            <p className="mt-2 text-[15px] leading-[1.8] text-[#4a1230]/85">{em(p.text)}</p>
-          </div>
-        ))}
-      </Reading>
-
-      <Scene id="children" state={illus} />
-
-      {/* ── closing ── */}
-      {v.closingLine && (
-        <section className="mx-auto max-w-2xl px-6 pb-6 pt-16 text-center">
-          <div className="mx-auto h-px w-16 bg-[#c9a24b]/50" />
-          <p className="font-display mt-8 text-2xl font-light italic leading-relaxed text-[#3d0b26]">“{v.closingLine}”</p>
-          <p className="mt-6 text-[12px] uppercase tracking-[0.25em] text-[#751545]/45">— Revela Institute</p>
-        </section>
-      )}
-
-      <Scene id="married" state={illus} />
-
-      {/* ── what to do now ── */}
-      <section className="no-print mx-auto mt-12 max-w-2xl px-6">
-        <div className="gold-ring rounded-3xl bg-white/90 p-8">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">What to do now</p>
-          <ol className="mt-5 space-y-4 text-[15px] leading-relaxed text-[#4a1230]/85">
-            <li><span className="font-semibold text-[#3d0b26]">1 · Within 48 hours:</span> do the first move in Weeks 1–2 above — the pattern loosens fastest right after you’ve seen it clearly.</li>
-            <li><span className="font-semibold text-[#3d0b26]">2 · Save your report:</span> download it now — re-read the field guide before every first date, and the root chapter on the hard days.</li>
-            <li><span className="font-semibold text-[#3d0b26]">3 · Mark day 90:</span> put a note in your calendar three months from today — come back and read this again from the other side.</li>
           </ol>
-          <div className="mt-7 text-center">
-            {downloadBtn}
-            <p className="mt-3 text-[12px] text-[#751545]/55">In the dialog, choose “Save as PDF”.</p>
-            <p className="mt-5 text-[12px] leading-relaxed text-[#4a1230]/55">Stuck, or something didn’t land? Email <a className="underline" href="mailto:support@revela.love">support@revela.love</a> — a real person replies within 2 business days.</p>
+        </Section>
+
+        <Section eyebrow="02 · Your strongest trigger" title="The moment the pattern tends to take over">
+          <div className="rounded-2xl bg-[#3d0b26] p-7 text-[#fbf5ef]">
+            <p className="font-display text-xl font-light italic leading-relaxed">{snapshot.trigger}</p>
           </div>
-        </div>
-      </section>
+        </Section>
 
-      {/* ── scientific foundations ── */}
-      <section className="print-block mx-auto mt-16 max-w-2xl px-6">
-        <div className="rounded-2xl border border-[#751545]/10 bg-white/60 p-7">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#751545]/60">Scientific foundations</p>
-          <p className="mt-3 text-[13px] leading-relaxed text-[#4a1230]/70">
-            Revela readings draw on the adult attachment research tradition — the body of work studying how early caregiver bonds shape adult romantic behavior. Selected foundational references:
-          </p>
-          <ul className="mt-4 space-y-2.5 text-[12px] leading-relaxed text-[#4a1230]/60">
-            <li>Bowlby, J. (1969). <i>Attachment and Loss, Vol. 1: Attachment.</i> Basic Books.</li>
-            <li>Ainsworth, M. D. S., Blehar, M. C., Waters, E., & Wall, S. (1978). <i>Patterns of Attachment: A Psychological Study of the Strange Situation.</i> Erlbaum.</li>
-            <li>Hazan, C., & Shaver, P. (1987). Romantic love conceptualized as an attachment process. <i>Journal of Personality and Social Psychology, 52</i>(3), 511–524.</li>
-            <li>Fraley, R. C., & Shaver, P. R. (2000). Adult romantic attachment: Theoretical developments, emerging controversies, and unanswered questions. <i>Review of General Psychology, 4</i>(2), 132–154.</li>
-            <li>Mikulincer, M., & Shaver, P. R. (2016). <i>Attachment in Adulthood: Structure, Dynamics, and Change</i> (2nd ed.). Guilford Press.</li>
-            <li>Gottman, J. M., & Levenson, R. W. (1992). Marital processes predictive of later dissolution. <i>Journal of Personality and Social Psychology, 63</i>(2), 221–233.</li>
-          </ul>
-          <p className="mt-4 text-[11px] leading-relaxed text-[#4a1230]/45">
-            These references describe the general research tradition that informs Revela’s educational content. Your reading is a personalized reflection, not a clinical assessment, and individual results are not established by these studies.
-          </p>
-        </div>
-      </section>
+        <Section eyebrow="03 · Your blind spot" title="The useful part that is hard to see from inside it">
+          <p className="rounded-2xl border border-[#c9a24b]/30 bg-[#fffaf0] p-6 text-[16px] leading-[1.8] text-[#4a1230]/88">{snapshot.blindSpot}</p>
+        </Section>
 
-      <footer className="mt-14 border-t border-[#751545]/10 px-6 py-8 text-center">
-        <p className="text-[11px] text-[#751545]/50">
-          © {new Date().getFullYear()} Revela Institute · Educational self-reflection content · Not medical or psychological advice
-        </p>
+        <Section eyebrow="04 · Try this today" title="One practical pattern interrupt">
+          <p className="text-[15.5px] leading-[1.85] text-[#4a1230]/85">{snapshot.nextMove}</p>
+          <div className="rounded-2xl border border-[#2f7d57]/20 bg-[#edf8f1] p-6">
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.2em] text-[#2f7d57]">Words you can borrow</p>
+            <p className="font-display mt-3 text-lg font-light italic leading-relaxed text-[#245f43]">“{snapshot.script}”</p>
+          </div>
+        </Section>
+
+        <section className="mx-auto mt-20 max-w-4xl rounded-[2.25rem] bg-[#3d0b26] px-6 py-12 text-center text-[#fbf5ef] sm:px-10 sm:py-14">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#edc840]">Your Snapshot names the loop</p>
+          <h2 className="font-display mx-auto mt-4 max-w-2xl text-3xl font-medium leading-tight md:text-4xl">
+            The Secure Love Reset helps you change what happens next.
+          </h2>
+          <p className="mx-auto mt-5 max-w-2xl text-[15px] leading-relaxed text-white/68">
+            Built from your answers for the moments that matter: the next text, the next date, the next boundary, the next conflict, and the next decision about whether to continue, clarify, slow down, or leave.
+          </p>
+
+          <div className="mt-10 grid gap-3 text-left sm:grid-cols-2">
+            {[
+              ['Personal Love Pattern Map', 'A deeper explanation of your attraction loop, protection strategy, and recurring sequence.'],
+              ['Partner & Date Filter', 'Personalized green flags, red flags, and observable behaviors—not vague “trust your gut” advice.'],
+              ['Personal Script Vault', 'Exact words for inconsistency, boundaries, conflict, exclusivity, and ending ambiguity.'],
+              ['Trigger Response Guide', 'What to do before chasing, withdrawing, over-apologizing, or sending the emotional message.'],
+              ['90-Day Practice Path', 'A staged plan that turns awareness into different choices and responses.'],
+              ['Downloadable Deep Reading', 'Your complete private reading to save, print, and revisit.'],
+            ].map(([title, description]) => (
+              <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.05] p-5">
+                <h3 className="font-display text-lg text-[#edc840]">{title}</h3>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-white/65">{description}</p>
+              </div>
+            ))}
+          </div>
+
+          <CheckoutButton className="mt-10" />
+        </section>
+
+        <section className="mx-auto mt-10 max-w-3xl rounded-2xl border border-[#c9a24b]/35 bg-white/80 p-6">
+          <div className="flex items-start gap-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#c9a24b]/20 text-xl">✓</span>
+            <div>
+              <h3 className="font-display text-lg font-medium text-[#3d0b26]">30-day money-back guarantee</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-[#4a1230]/72">
+                Open the product and use the first tools. If the experience feels generic or unusable, email {SUPPORT_EMAIL} within 30 days for a full refund.
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-[#751545]/10 px-6 py-8 text-center text-[11px] leading-relaxed text-[#4a1230]/45">
+        © 2026 Revela · operated by Foorsa LLC · educational self-reflection, not medical or psychological advice
       </footer>
     </div>
   );
 }
 
-export default function Report({ answers, deep, unlocked = false }: { answers: Answers; deep?: DeepReport | null; unlocked?: boolean }) {
-  const r = buildReport(answers);
-  const v = toView(r, deep ?? null);
-  const { label: deadline, expired } = useDeadline();
+function FullReport({ answers, deep, premiumGenerating, notice }: { answers: Answers; deep: DeepReport | null; premiumGenerating: boolean; notice: Notice }) {
+  const builtIn = buildReport(answers);
+  const view = toView(builtIn, deep, answers);
+  const snapshot = snapshotFor(builtIn.style, answers);
+  const illustrations = useIllustrations(answers);
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-  if (unlocked) {
-    return <FullReport answers={answers} deep={deep ?? null} />;
-  }
-
-  // one luring sentence, personalized from her answers
-  const lure =
-    r.style === 'anxious'
-      ? `${r.name}, your report is ready — and it reveals the exact moment your love starts pushing him away.`
-      : r.style === 'avoidant'
-        ? `${r.name}, your report is ready — and it reveals why the good ones always start to feel boring.`
-        : r.style === 'fearful'
-          ? `${r.name}, your report is ready — and it reveals the push-pull that keeps love just out of reach.`
-          : `${r.name}, your report is ready — and it reveals the quiet pattern that has been choosing your men for you.`;
-
-  const unlockSub = `Secure checkout via Stripe · one-time payment · read your full report instantly`;
-
-  // the first sentence of her report — shown unblurred, names what she's doing wrong
-  const hook =
-    (typeof deep?.hook === 'string' && deep.hook.trim()) ||
-    (r.style === 'anxious'
-      ? `${r.name}, what you're doing — loving harder every time he pulls back — is exactly what pushes him away, and here's why.`
-      : r.style === 'avoidant'
-        ? `${r.name}, what you're doing — leaving the moment it starts to feel real — is what's keeping you single, and here's why.`
-        : r.style === 'fearful'
-          ? `${r.name}, what you're doing — pulling him close, then pushing him away — is the very thing breaking your relationships, and here's why.`
-          : `${r.name}, what you're doing — letting an old pattern choose your men for you — is what's quietly running your love life, and here's why.`);
+  const download = () => window.print();
 
   return (
-    <div className="bg-grain min-h-screen pb-24">
-      {/* ── header ── */}
-      <header className="border-b border-[#751545]/10 bg-[#fbf5ef]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <div className="flex items-baseline gap-1">
-            <span className="font-display text-2xl font-semibold tracking-tight text-[#3d0b26]">Revela</span>
-            <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#c9a24b]">Personal Report</span>
+    <div className="bg-grain min-h-screen pb-16">
+      <header className="no-print sticky top-0 z-50 border-b border-[#751545]/10 bg-[#fbf5ef]/92 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+          <div className="flex items-baseline gap-2">
+            <span className="font-display text-2xl font-semibold text-[#3d0b26]">Revela</span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#c9a24b]">Secure Love Reset</span>
           </div>
-          <span className="text-[11px] uppercase tracking-widest text-[#751545]/50">{today}</span>
+          <div className="flex items-center gap-3">
+            <span className="rounded-full bg-[#2f7d57]/10 px-3 py-1 text-[11px] font-semibold text-[#2f7d57]">Unlocked ✓</span>
+            <button onClick={download} className="btn-shine rounded-full px-5 py-2.5 text-[13px] font-semibold text-white">Save as PDF</button>
+          </div>
         </div>
       </header>
 
-      {/* ── teaser: one luring sentence ── */}
-      <section className="px-6 pb-14 pt-20 text-center">
-        <Reveal>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">
-            Your 21 answers have been read
-          </p>
-          <h1 className="font-display mx-auto mt-6 max-w-3xl text-3xl font-medium leading-[1.2] tracking-tight text-[#3d0b26] md:text-[2.7rem]">
-            {lure.split(' — ')[0]} —{' '}
-            <em className="font-light text-[#751545]">{lure.split(' — ')[1]}</em>
-          </h1>
-        </Reveal>
-        <Reveal delay={200}>
-          <div className="mx-auto mt-9 inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-full border border-[#c9a24b]/35 bg-white/70 px-7 py-3 text-[12.5px] text-[#4a1230]/70">
-            <span>{r.name}{r.age ? ` · ${r.age}` : ''}{r.zodiac ? ` · ${r.zodiac.symbol} ${r.zodiac.sign}` : ''}</span>
-            <span className="hidden h-3 w-px bg-[#751545]/20 sm:block" />
-            <span>Archetype: <b className="text-[#751545]">{v.archetypeName}</b></span>
-            <span className="hidden h-3 w-px bg-[#751545]/20 sm:block" />
-            <span className="text-[#c9a24b]">6 readings · written for you</span>
+      <main className="px-5 pb-12 pt-10 sm:px-6">
+        <NoticeBanner notice={notice} />
+        {premiumGenerating && (
+          <div className="no-print mx-auto mb-8 max-w-3xl rounded-2xl border border-[#c9a24b]/25 bg-[#fffaf0] px-5 py-4 text-center text-sm leading-relaxed text-[#725514]">
+            Your tools are ready. The deeper narrative is still being personalized and will appear here automatically when complete.
           </div>
-        </Reveal>
-      </section>
+        )}
 
-      {/* ── the locked report: first sentence clear, the rest blurred ── */}
-      <section className="relative px-4 md:px-6">
-        <div className="relative mx-auto max-w-3xl">
-          {/* clear opening — the first sentence of her report */}
-          <Reveal>
-            <div className="rounded-t-[2rem] border border-b-0 border-[#751545]/10 bg-white px-7 pb-9 pt-12 md:px-14">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">
-                Reading I — from your report
-              </p>
-              <p className="font-display mt-6 text-[1.55rem] font-light leading-[1.45] text-[#3d0b26] md:text-[1.9rem]">
-                {hook}
-              </p>
-              <div className="mt-8 flex items-center gap-3 md:gap-4">
-                <div className="h-px min-w-4 flex-1 bg-gradient-to-r from-transparent via-[#c9a24b]/50 to-transparent" />
-                <p className="max-w-[70%] text-center text-[10px] uppercase leading-relaxed tracking-[0.22em] text-[#751545]/45 md:max-w-none md:text-[11px] md:tracking-[0.25em]">
-                  — and that's only the first sentence
-                </p>
-                <div className="h-px min-w-4 flex-1 bg-gradient-to-r from-transparent via-[#c9a24b]/50 to-transparent" />
-              </div>
-            </div>
-          </Reveal>
+        <section className="mx-auto max-w-3xl text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Prepared exclusively for</p>
+          <h1 className="font-display mt-4 text-4xl font-medium text-[#3d0b26] md:text-5xl">{builtIn.name}</h1>
+          <p className="mt-3 text-[12px] uppercase tracking-[0.18em] text-[#751545]/48">{today} · private personalized edition</p>
 
-          {/* blurred remainder */}
-          <div className="relative">
-            <div
-              aria-hidden
-              className="select-none overflow-hidden rounded-b-[2rem] border-x border-b border-[#751545]/10 bg-white/70 px-7 py-12 md:px-14"
-              style={{ filter: 'blur(4px)', pointerEvents: 'none', height: 700 }}
-            >
-            {/* cover */}
-            <div className="text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Prepared exclusively for</p>
-              <h2 className="font-display mt-4 text-4xl font-medium text-[#3d0b26] md:text-5xl">
-                {r.name} {r.zodiac && <span className="text-3xl text-[#c9a24b]">{r.zodiac.symbol}</span>}
-              </h2>
-              <p className="mt-3 text-[13px] uppercase tracking-[0.2em] text-[#751545]/55">
-                {r.age ? `${r.age} years old` : ''}{r.age && r.zodiac ? ' · ' : ''}{r.zodiac ? `${r.zodiac.sign} · ${r.zodiac.element} sign` : ''}
-              </p>
-            </div>
-            <div className="gold-ring mx-auto mt-10 max-w-xl rounded-[2rem] bg-white/80 p-9">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Your archetype</p>
-              <h3 className="font-display mt-3 text-3xl font-medium text-[#751545]">{v.archetypeName}</h3>
-              {v.archetypeLine && <p className="mt-2 text-[14px] italic text-[#4a1230]/60">{v.archetypeLine}</p>}
-              <p className="font-display mt-5 text-xl font-light italic leading-relaxed text-[#3d0b26]">“{v.headline}”</p>
-            </div>
-            {/* reading I — the hook, then it fades */}
-            <div className="mt-12">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">
-                {v.openingLetter ? 'Reading I — a letter to you' : 'Reading I — what your answers revealed'}
-              </p>
-              <h4 className="font-display mt-3 text-2xl font-medium text-[#3d0b26]">
-                {v.openingLetter ? 'Read this first, slowly' : 'The pattern you didn’t know you were running'}
-              </h4>
-              <div className="mt-5 flex flex-col gap-4">
-                {(v.openingLetter ?? [v.subheadline]).slice(0, 2).map((para, i) => (
-                  <p key={i} className="text-[15.5px] leading-[1.8] text-[#4a1230]/85">{em(para)}</p>
-                ))}
-              </div>
-            </div>
-            </div>
-
-            {/* fade + unlock overlay */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-full" style={{ background: 'linear-gradient(to bottom, rgba(251,245,239,0.0) 0%, rgba(251,245,239,0.0) 22%, rgba(251,245,239,0.55) 40%, rgba(251,245,239,0.96) 55%, #fbf5ef 65%)' }} />
-            <div className="absolute inset-x-0 bottom-8 flex justify-center px-4 md:px-6">
-            <Reveal className="w-full max-w-md">
-              <div className="rounded-[1.8rem] border border-[#c9a24b]/45 bg-white/95 p-8 text-center shadow-[0_30px_80px_-20px_rgba(61,11,38,0.35)] backdrop-blur-md">
-                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#751545] to-[#c4688a] text-2xl text-white shadow-lg">🔒</span>
-                <h3 className="font-display mt-5 text-2xl font-medium text-[#3d0b26]">Your full report is locked</h3>
-                <p className="mt-3 text-[14px] leading-relaxed text-[#4a1230]/75">
-                  Six readings, written only for you — the loop, the root, the revelation, the man you actually need, and your 90-day path. Unlock it once. Keep it forever.
-                </p>
-                {deadline && !expired && (
-                  <div className="mt-5 rounded-xl bg-[#3d0b26] px-4 py-3">
-                    <p className="text-[10.5px] font-semibold uppercase tracking-[0.2em] text-[#fbf5ef]/60">
-                      Your unlock price expires in
-                    </p>
-                    <p className="font-display mt-1 text-2xl font-semibold tabular-nums text-[#edc840]">{deadline}</p>
-                  </div>
-                )}
-                <div className="mt-6">
-                  <p className="mb-4 text-[13px] text-[#4a1230]/60">
-                    <span className="mr-2 tabular-nums line-through">{UNLOCK_PRICE_ANCHOR}</span>
-                    <span className="font-display text-2xl font-semibold text-[#751545]">{UNLOCK_PRICE} <span className="text-[12px] font-normal text-[#4a1230]/50">USD</span></span>
-                    <span className="ml-2 rounded-full bg-[#c9a24b]/20 px-2.5 py-0.5 text-[11px] font-semibold text-[#751545]">finisher price</span>
-                  </p>
-                  <UnlockButton sub={unlockSub} />
-                </div>
-              </div>
-            </Reveal>
-            </div>
+          <div className="gold-ring mx-auto mt-10 rounded-[2rem] bg-white/85 p-9">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#c9a24b]">Your pattern map</p>
+            <h2 className="font-display mt-3 text-3xl font-medium text-[#751545]">{view.archetypeName}</h2>
+            {view.archetypeLine && <p className="mt-2 text-[14px] italic text-[#4a1230]/60">{view.archetypeLine}</p>}
+            <p className="font-display mt-5 text-xl font-light italic leading-relaxed text-[#3d0b26]">“{view.headline}”</p>
           </div>
-        </div>
-      </section>
-
-      {/* ── conversion zone below the paywall ── */}
-      <section className="mx-auto max-w-3xl px-6 pt-32">
-        <Reveal className="text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">Inside your report</p>
-          <h2 className="font-display mt-5 text-3xl font-medium leading-tight text-[#3d0b26] md:text-4xl">
-            Here’s exactly what you’ll
-            <em className="font-light text-[#751545]"> read in the next five minutes.</em>
-          </h2>
-        </Reveal>
-        <div className="mt-12 flex flex-col gap-3">
-          {[
-            ['I', 'The letter', 'Your answers reflected back until the thread between your childhood and your love life becomes impossible to unsee.'],
-            ['II', 'The loop', 'The exact sequence you run from first date to ending — what you do, what he experiences, how it closes.'],
-            ['III', 'The root', 'Where it started: your father, your home, and the little girl’s logic still choosing your men today.'],
-            ['IV', 'The revelation', 'Why you’re still single — the part no one has ever said to you plainly.'],
-            ['V', 'Who to choose', 'The four traits of the man who would actually work for you — not the one you keep choosing.'],
-            ['VI', 'The 90-day path', 'Three named phases from pattern to proposal, built around your timeline and your dream of a family.'],
-          ].map(([num, title, desc], i) => (
-            <Reveal key={i} delay={i * 70}>
-              <div className="flex items-start gap-5 rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-5">
-                <span className="font-display shrink-0 text-xl font-medium text-[#c9a24b]">{num}</span>
-                <div>
-                  <p className="font-display text-[17px] font-medium text-[#3d0b26]">{title}</p>
-                  <p className="mt-1 text-[14px] leading-relaxed text-[#4a1230]/70">{desc}</p>
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ── her own words, echoed ── */}
-      {v.herWords && (
-        <section className="mx-auto max-w-2xl px-6 pt-24">
-          <Reveal>
-            <p className="text-center text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">You told us</p>
-            <div className="mt-5 rounded-3xl bg-[#3d0b26] p-9 text-center">
-              <p className="font-display text-xl font-light italic leading-relaxed text-[#fbf5ef]/90">“{v.herWords}”</p>
-              <p className="mt-5 text-[13.5px] leading-relaxed text-[#fbf5ef]/60">
-                That’s what you believe. Your report shows you what’s actually true — and it’s kinder, and more fixable, than the story you’ve been carrying.
-              </p>
-            </div>
-          </Reveal>
         </section>
-      )}
 
-      {/* ── member stories ── */}
-      <section className="overflow-hidden pt-28">
-        <Reveal className="px-6 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c9a24b]">Member stories</p>
-          <h2 className="font-display mt-5 text-3xl font-medium text-[#3d0b26] md:text-4xl">
-            What women say after
-            <em className="font-light text-[#751545]"> seeing their pattern.</em>
-          </h2>
-        </Reveal>
-        <div className="relative mt-12">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#fbf5ef] to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#fbf5ef] to-transparent" />
-          <div className="animate-marquee flex w-max gap-6 pr-6">
-            {[...REVIEWS, ...REVIEWS].map((rev, i) => (
-              <div key={i} className="w-[340px] shrink-0 rounded-3xl border border-[#751545]/10 bg-white/85 p-6 shadow-sm">
-                <Stars size="text-xs" />
-                <p className="mt-3 text-[14px] leading-relaxed text-[#4a1230]/85">“{rev.text}”</p>
-                <p className="mt-4 text-[12px] font-semibold text-[#3d0b26]">
-                  {rev.name} <span className="font-normal text-[#751545]/50">· {rev.place}</span>
-                </p>
-              </div>
+        <ResetDashboard answers={answers} archetypeName={view.archetypeName} />
+
+        <Section eyebrow="Start here" title="Your first pattern interrupt">
+          <div className="rounded-2xl border border-[#2f7d57]/20 bg-[#edf8f1] p-6">
+            <p className="text-[15.5px] leading-[1.8] text-[#245f43]">{snapshot.nextMove}</p>
+            <p className="font-display mt-4 text-lg font-light italic leading-relaxed text-[#245f43]">“{snapshot.script}”</p>
+          </div>
+        </Section>
+
+        <Section eyebrow="Reading I" title="The thread running through your answers">
+          <Paragraphs items={view.opening} />
+        </Section>
+
+        <ScenePhotoPrompt state={illustrations} name={answers.name} />
+
+        <Section eyebrow="Reading II" title="The loop you keep running">
+          <Paragraphs items={view.corePattern} />
+          <ol className="mt-6 space-y-3">
+            {snapshot.loop.map((item, index) => (
+              <li key={item} className="flex gap-4 rounded-2xl border border-[#751545]/10 bg-white/75 p-5 text-[15px] leading-relaxed text-[#4a1230]/82">
+                <span className="font-display text-lg text-[#c9a24b]">{index + 1}</span>
+                <span>{item}</span>
+              </li>
             ))}
-          </div>
-        </div>
-        <p className="mt-8 px-6 text-center text-[11px] text-[#4a1230]/40">
-          Stories reflect individual experiences; results vary and are not guaranteed.
-        </p>
-      </section>
+          </ol>
+        </Section>
 
-      {/* ── guarantee + final close ── */}
-      <section className="bg-gradient-to-b from-[#fbf5ef] to-[#f3e8df] px-6 py-24">
-        <div className="mx-auto max-w-2xl">
-          <Reveal>
-            <div className="gold-ring flex items-start gap-5 rounded-2xl bg-white/85 p-6">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c9a24b] to-[#edc840] text-xl text-[#3d0b26]">✓</span>
-              <div>
-                <p className="font-display text-lg font-medium text-[#3d0b26]">30-day money-back guarantee</p>
-                <p className="mt-1.5 text-[14px] leading-relaxed text-[#4a1230]/75">
-                  Read your full report. If it doesn’t feel like it was written for you — and only you — email us within 30 days for a full refund. No questions, no forms.
-                </p>
-              </div>
-            </div>
-          </Reveal>
-          <Reveal delay={140} className="mt-12 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#c4688a]">One question remains, {r.name}</p>
-            <h2 className="font-display mx-auto mt-4 max-w-xl text-3xl font-medium leading-tight text-[#3d0b26] md:text-4xl">
-              You did the hard part.
-              <em className="font-light text-[#751545]"> Now read what it means.</em>
-            </h2>
-            {deadline && !expired && (
-              <p className="mt-5 text-[13px] text-[#751545]/70">
-                Your finisher price expires in{' '}
-                <span className="font-display font-semibold tabular-nums text-[#3d0b26]">{deadline}</span>
-                {' '}— then it returns to {UNLOCK_PRICE_ANCHOR}.
-              </p>
-            )}
-            <div className="mt-8">
-              <UnlockButton sub={unlockSub} />
-            </div>
-          </Reveal>
-        </div>
-      </section>
+        <Scene id="parents" state={illustrations} />
 
-      <footer className="border-t border-[#751545]/10 px-6 py-8 text-center">
-        <p className="text-[11.5px] leading-relaxed text-[#4a1230]/50">
-          © 2026 Revela · operated by Foorsa LLC · This report is educational self-reflection content, not medical or psychological advice.
-        </p>
-      </footer>
+        <Section eyebrow="Reading III" title="Where the protection may have started">
+          <Paragraphs items={view.rootCause} />
+        </Section>
 
-      {/* ── sticky unlock bar ── */}
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#751545]/10 bg-[#fbf5ef]/92 px-4 py-3 backdrop-blur-md">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
-          <div className="min-w-0">
-            <p className="truncate text-[13px] font-semibold text-[#3d0b26]">
-              {r.name}’s report is ready
-            </p>
-            <p className="text-[11.5px] text-[#751545]/60">
-              {deadline && !expired ? (
-                <>expires in <span className="font-semibold tabular-nums text-[#751545]">{deadline}</span></>
-              ) : (
-                <>6 readings · written for you</>
+        <Section eyebrow="Reading IV" title="The blind spot said plainly">
+          <Paragraphs items={view.hiddenTruth} />
+          {view.herWords && (
+            <div className="mt-7 rounded-[1.75rem] bg-[#3d0b26] p-8 text-center text-[#fbf5ef]">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.24em] text-[#c9a24b]">You told us</p>
+              <p className="font-display mt-4 text-xl font-light italic leading-relaxed">“{view.herWords}”</p>
+              {view.herWordsReflected.length > 0 && (
+                <div className="mt-5 space-y-3 text-[14px] leading-relaxed text-white/72">
+                  {view.herWordsReflected.map((item, index) => <p key={index}>{item}</p>)}
+                </div>
               )}
-            </p>
+            </div>
+          )}
+        </Section>
+
+        <Scene id="peace" state={illustrations} />
+
+        <Section eyebrow="Decision tool" title="Your partner and date filter">
+          <p className="text-[15px] leading-relaxed text-[#4a1230]/75">
+            Use this section to evaluate observable behavior. It is not a scorecard for perfection; it is a reminder not to let chemistry erase evidence.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-[#2f7d57]/20 bg-[#edf8f1] p-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2f7d57]">Green flags for your pattern</p>
+              <ul className="mt-4 space-y-3 text-[14px] leading-relaxed text-[#245f43]">
+                {(deep?.fieldGuide?.greenFlags?.length ? deep.fieldGuide.greenFlags : view.manSheNeeds).slice(0, 4).map((item, index) => (
+                  <li key={index} className="flex gap-2"><span>✓</span><span>{emphasis(item)}</span></li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-[#9c2b2b]/20 bg-[#fff2f2] p-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9c2b2b]">Pause and investigate</p>
+              <ul className="mt-4 space-y-3 text-[14px] leading-relaxed text-[#6f3030]">
+                {(deep?.fieldGuide?.redFlags?.length
+                  ? deep.fieldGuide.redFlags
+                  : [
+                      answers.exes_pattern || 'The same pattern you recognized across previous partners.',
+                      'Words and future promises consistently exceed observable effort.',
+                      'Clarity appears only when you begin to leave.',
+                      'Your boundaries are treated as obstacles rather than useful information.',
+                    ]
+                ).slice(0, 4).map((item, index) => (
+                  <li key={index} className="flex gap-2"><span>×</span><span>{item}</span></li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <a
-            href={STRIPE_PAYMENT_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-shine shrink-0 rounded-full px-6 py-2.5 text-sm font-semibold text-white"
-          >
-            <span>Unlock — {UNLOCK_PRICE}</span>
-          </a>
-        </div>
-      </div>
+        </Section>
+
+        <Section eyebrow="Communication tool" title="Your personal script vault">
+          {deep?.fieldGuide?.scripts?.length ? (
+            deep.fieldGuide.scripts.map((script, index) => (
+              <div key={index} className="rounded-2xl border border-[#751545]/10 bg-white/80 p-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c4688a]">{script.situation}</p>
+                <p className="mt-3 text-[15px] leading-relaxed text-[#3d0b26]"><strong className="text-[#2f7d57]">Say:</strong> “{script.sayThis}”</p>
+                {script.notThis && <p className="mt-2 text-[14px] leading-relaxed text-[#4a1230]/68"><strong className="text-[#9c2b2b]">Avoid:</strong> {script.notThis}</p>}
+              </div>
+            ))
+          ) : (
+            <>
+              <div className="rounded-2xl border border-[#751545]/10 bg-white/80 p-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c4688a]">When communication changes</p>
+                <p className="mt-3 text-[15px] leading-relaxed text-[#3d0b26]">“{snapshot.script}”</p>
+              </div>
+              <div className="rounded-2xl border border-[#751545]/10 bg-white/80 p-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c4688a]">When you need clarity</p>
+                <p className="mt-3 text-[15px] leading-relaxed text-[#3d0b26]">“I enjoy this connection, and I am looking for something intentional. What are you genuinely available for right now?”</p>
+              </div>
+              <div className="rounded-2xl border border-[#751545]/10 bg-white/80 p-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c4688a]">When ambiguity continues</p>
+                <p className="mt-3 text-[15px] leading-relaxed text-[#3d0b26]">“I do not need a rushed promise, but I do need consistency and direction. This no longer works for me, so I am stepping back.”</p>
+              </div>
+            </>
+          )}
+        </Section>
+
+        <Section eyebrow="Implementation" title="Your 90-day practice path">
+          {view.path.map((phase, index) => (
+            <div key={`${phase.title}-${index}`} className="rounded-2xl border border-[#751545]/10 bg-white/80 px-6 py-5">
+              <p className="font-display text-[17px] font-medium text-[#751545]">{phase.title}</p>
+              <p className="mt-2 text-[15px] leading-[1.8] text-[#4a1230]/85">{emphasis(phase.text)}</p>
+            </div>
+          ))}
+        </Section>
+
+        <Scene id="children" state={illustrations} />
+
+        {view.closingLine && (
+          <section className="mx-auto max-w-2xl px-6 pb-6 pt-16 text-center">
+            <div className="mx-auto h-px w-16 bg-[#c9a24b]/50" />
+            <p className="font-display mt-8 text-2xl font-light italic leading-relaxed text-[#3d0b26]">“{view.closingLine}”</p>
+          </section>
+        )}
+
+        <Scene id="clarity" state={illustrations} />
+
+        <section className="no-print mx-auto mt-16 max-w-3xl rounded-3xl border border-[#c9a24b]/35 bg-white/85 p-8 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#c4688a]">Keep this useful</p>
+          <h2 className="font-display mt-3 text-2xl font-medium text-[#3d0b26]">Save it before the next emotional moment.</h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#4a1230]/70">
+            Re-read the Script Vault before sending a difficult message, and use the Date Filter before explaining away early inconsistency.
+          </p>
+          <button onClick={download} className="btn-shine mt-6 rounded-full px-7 py-3.5 text-[14px] font-semibold text-white">Download My Reset as PDF</button>
+          <p className="mt-4 text-[12px] text-[#751545]/50">Questions or something did not land? Email {SUPPORT_EMAIL}.</p>
+        </section>
+
+        <section className="print-block mx-auto mt-12 max-w-3xl rounded-2xl border border-[#751545]/10 bg-white/60 p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#751545]/55">Important context</p>
+          <p className="mt-3 text-[12.5px] leading-relaxed text-[#4a1230]/60">
+            {OFFER_NAME} is educational self-reflection and decision-support content informed by relationship and attachment research. It is not medical or psychological advice, a diagnosis, treatment, therapy, or a guarantee of a relationship outcome.
+          </p>
+        </section>
+      </main>
+
+      <footer className="mt-12 border-t border-[#751545]/10 px-6 py-8 text-center text-[11px] text-[#4a1230]/45">
+        © 2026 Revela · operated by Foorsa LLC · private educational content
+      </footer>
     </div>
   );
+}
+
+export default function Report({
+  answers,
+  deep = null,
+  unlocked = false,
+  premiumGenerating = false,
+  notice = null,
+}: Props) {
+  if (!unlocked) return <FreeSnapshot answers={answers} notice={notice} />;
+  return <FullReport answers={answers} deep={deep} premiumGenerating={premiumGenerating} notice={notice} />;
 }

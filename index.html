@@ -3,54 +3,66 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Revela — Understand Why You're Still Single</title>
-    <meta name="description" content="Revela decodes the hidden patterns keeping you single — and shows you the exact path to the ring, the marriage, the family." />
+    <title>Revela — Reveal Your Relationship Pattern</title>
+    <meta
+      name="description"
+      content="Take a private 14-question assessment and receive a free Pattern Snapshot showing your recurring relationship loop, strongest trigger, blind spot, and one practical next move."
+    />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Revela" />
-    <meta property="og:title" content="Revela — Understand Why You're Still Single" />
-    <meta property="og:description" content="A free 21-question assessment, grounded in published attachment research, that reveals your relationship pattern and your 90-day path forward." />
+    <meta property="og:title" content="Revela — Reveal Your Relationship Pattern" />
+    <meta
+      property="og:description"
+      content="A free private Pattern Snapshot for understanding recurring relationship choices and reactions. Educational, practical, and not diagnostic."
+    />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Revela — Understand Why You're Still Single" />
-    <meta name="twitter:description" content="A free 21-question assessment, grounded in published attachment research, that reveals your relationship pattern." />
+    <meta name="twitter:title" content="Revela — Reveal Your Relationship Pattern" />
+    <meta
+      name="twitter:description"
+      content="Take the free 14-question assessment and see your recurring loop, trigger, blind spot, and next move."
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400;1,9..144,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <!-- Queue Meta Pixel events immediately; fetch the third-party script after critical rendering. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400;1,9..144,500&family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <script>
       (function (window, document) {
-        if (window.fbq) return;
+        var loaded = false;
+        window.revelaLoadMetaPixel = function () {
+          if (loaded) return;
+          loaded = true;
 
-        var fbq = window.fbq = function () {
-          fbq.callMethod ? fbq.callMethod.apply(fbq, arguments) : fbq.queue.push(arguments);
-        };
-        window._fbq = fbq;
-        fbq.push = fbq;
-        fbq.loaded = true;
-        fbq.version = '2.0';
-        fbq.queue = [];
+          var fbq = (window.fbq = window.fbq || function () {
+            fbq.callMethod ? fbq.callMethod.apply(fbq, arguments) : fbq.queue.push(arguments);
+          });
+          window._fbq = fbq;
+          fbq.push = fbq;
+          fbq.loaded = true;
+          fbq.version = '2.0';
+          fbq.queue = fbq.queue || [];
 
-        function loadPixel() {
+          fbq('init', '1045331238409589');
+          fbq('track', 'PageView');
+
           var script = document.createElement('script');
           script.async = true;
           script.src = 'https://connect.facebook.net/en_US/fbevents.js';
           document.head.appendChild(script);
-        }
+        };
 
-        fbq('init', '1045331238409589');
-        fbq('track', 'PageView');
-
-        if ('requestIdleCallback' in window) {
-          window.requestIdleCallback(loadPixel, { timeout: 2500 });
-        } else {
-          window.addEventListener('load', loadPixel, { once: true });
+        try {
+          if (window.localStorage.getItem('revela_marketing_consent') === 'granted') {
+            window.revelaLoadMetaPixel();
+          }
+        } catch (_) {
+          // No marketing script is loaded when consent cannot be read.
         }
       })(window, document);
     </script>
   </head>
   <body>
-    <noscript><img height="1" width="1" style="display:none" alt=""
-      src="https://www.facebook.com/tr?id=1045331238409589&ev=PageView&noscript=1"
-    /></noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
